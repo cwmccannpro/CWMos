@@ -1,4 +1,5 @@
 import { HealthSupplementWidget } from '@/modules/health/widgets';
+import { SupplementAnalyticsWidget } from './widgets';
 import type { ModuleDefinition } from '@/types';
 
 export const supplementsModule: ModuleDefinition = {
@@ -21,6 +22,15 @@ export const supplementsModule: ModuleDefinition = {
       defaultSize: { w: 3, h: 5 },
       minSize: { w: 2, h: 3 },
       component: HealthSupplementWidget,
+    },
+    {
+      id: 'supplement-analytics',
+      moduleId: 'supplements',
+      name: 'Supplement Analytics',
+      description: '14-day adherence heatmap, streak, and daily checklist',
+      defaultSize: { w: 3, h: 7 },
+      minSize: { w: 2, h: 5 },
+      component: SupplementAnalyticsWidget,
     },
   ],
   actions: [],

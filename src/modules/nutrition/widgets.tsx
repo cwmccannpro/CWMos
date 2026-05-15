@@ -166,3 +166,102 @@ export function NutritionWeekWidget({ widgetInstanceId }: WidgetProps) {
     </div>
   );
 }
+
+
+// ─── NutritionDemoWidget ──────────────────────────────────────────────────────
+
+const DEMO = {
+  calories:    { val: 1840, goal: 2500, unit: 'kcal', color: 'bg-orange-500',  label: 'Calories'    },
+  protein_g:   { val: 142,  goal: 180,  unit: 'g',    color: 'bg-red-500',     label: 'Protein'     },
+  carbs_g:     { val: 198,  goal: 250,  unit: 'g',    color: 'bg-amber-500',   label: 'Carbs'       },
+  fat_g:       { val: 61,   goal: 80,   unit: 'g',    color: 'bg-yellow-500',  label: 'Fat'         },
+  fiber_g:     { val: 22,   goal: 30,   unit: 'g',    color: 'bg-lime-500',    label: 'Fiber'       },
+  sugar_g:     { val: 48,   goal: 50,   unit: 'g',    color: 'bg-pink-500',    label: 'Sugar'       },
+  sodium_mg:   { val: 1820, goal: 2300, unit: 'mg',   color: 'bg-cyan-500',    label: 'Sodium'      },
+};
+
+const MICROS = [
+  { label: 'Vitamin D', val: 14,  goal: 20,   unit: 'mcg', color: 'bg-yellow-400'  },
+  { label: 'Calcium',   val: 780, goal: 1000, unit: 'mg',  color: 'bg-blue-400'    },
+  { label: 'Iron',      val: 14,  goal: 18,   unit: 'mg',  color: 'bg-rose-400'    },
+  { label: 'Potassium', val: 2800,goal: 3500, unit: 'mg',  color: 'bg-violet-400'  },
+  { label: 'Vitamin C', val: 72,  goal: 90,   unit: 'mg',  color: 'bg-orange-400'  },
+  { label: 'Magnesium', val: 290, goal: 420,  unit: 'mg',  color: 'bg-teal-400'    },
+  { label: 'Zinc',      val: 9,   goal: 11,   unit: 'mg',  color: 'bg-indigo-400'  },
+  { label: 'Vitamin B12',val: 2.1,goal: 2.4,  unit: 'mcg', color: 'bg-emerald-400' },
+];
+
+function MacroBar({ label, val, goal, unit, color }: { label: string; val: number; goal: number; unit: string; color: string }) {
+  const pct = Math.min(100, (val / goal) * 100);
+  const over = val > goal;
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-0.5">
+        <span className="text-zinc-400 text-[10px]">{label}</span>
+        <span className={cn('text-[10px] tabular-nums', over ? 'text-rose-400' : 'text-zinc-500')}>
+          {val.toLocaleString()}/{goal.toLocaleString()}{unit}
+        </span>
+      </div>
+      <div className="h-1.5 bg-zinc-800 rounded-full overflow-hidden">
+        <div className={cn('h-full rounded-full transition-all', over ? 'bg-rose-500' : color)}
+          style={{ width: `${pct}%` }} />
+      </div>
+    </div>
+  );
+}
+
+export function NutritionDemoWidget(_: WidgetProps) {
+  const calPct = Math.round((DEMO.calories.val / DEMO.calories.goal) * 100);
+
+  return (
+    <div className="h-full flex flex-col gap-3 overflow-hidden">
+      {/* Demo badge + calorie summary */}
+      <div className="flex items-center justify-between shrink-0">
+        <div className="flex items-center gap-2">
+          <Flame size={12} className="text-orange-400" />
+          <span className="text-zinc-400 text-xs font-medium uppercase tracking-wider">Today — Demo</span>
+        </div>
+        <span className="text-[9px] px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-500 border border-zinc-700">DEMO DATA</span>
+      </div>
+
+      {/* Calories hero */}
+      <div className="flex items-center gap-3 shrink-0 bg-zinc-800/40 rounded-xl p-3">
+        <div className="relative w-14 h-14">
+          <svg width="56" height="56" className="-rotate-90">
+            <circle cx="28" cy="28" r="22" fill="none" stroke="#27272a" strokeWidth="5" />
+            <circle cx="28" cy="28" r="22" fill="none" stroke="#f97316"
+              strokeWidth="5" strokeLinecap="round"
+              strokeDasharray={2 * Math.PI * 22}
+              strokeDashoffset={2 * Math.PI * 22 * (1 - calPct / 100)} />
+          </svg>
+          <span className="absolute inset-0 flex items-center justify-center text-[10px] font-bold text-zinc-300">{calPct}%</span>
+        </div>
+        <div>
+          <p className="text-zinc-100 text-2xl font-bold tabular-nums leading-none">{DEMO.calories.val.toLocaleString()}</p>
+          <p className="text-zinc-500 text-[10px] mt-0.5">of {DEMO.calories.goal.toLocaleString()} kcal goal</p>
+          <p className="text-zinc-600 text-[9px] mt-1">{DEMO.calories.goal - DEMO.calories.val} kcal remaining</p>
+        </div>
+      </div>
+
+      {/* Macros */}
+      <div className="shrink-0">
+        <p className="text-zinc-600 text-[9px] uppercase tracking-wider mb-2">Macronutrients</p>
+        <div className="space-y-2">
+          {Object.entries(DEMO).slice(1).map(([k, m]) => (
+            <MacroBar key={k} {...m} />
+          ))}
+        </div>
+      </div>
+
+      {/* Micros */}
+      <div className="flex-1 overflow-y-auto min-h-0">
+        <p className="text-zinc-600 text-[9px] uppercase tracking-wider mb-2">Micronutrients</p>
+        <div className="space-y-2">
+          {MICROS.map((m) => (
+            <MacroBar key={m.label} {...m} />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}

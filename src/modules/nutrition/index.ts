@@ -1,4 +1,4 @@
-import { NutritionTodayWidget, NutritionWeekWidget } from './widgets';
+import { NutritionTodayWidget, NutritionWeekWidget, NutritionDemoWidget } from './widgets';
 import type { ModuleDefinition } from '@/types';
 
 export const nutritionModule: ModuleDefinition = {
@@ -30,6 +30,15 @@ export const nutritionModule: ModuleDefinition = {
       defaultSize: { w: 3, h: 4 },
       minSize: { w: 2, h: 3 },
       component: NutritionWeekWidget,
+    },
+    {
+      id: 'nutrition-demo',
+      moduleId: 'nutrition',
+      name: 'Nutrition Panel (Demo)',
+      description: 'Full macro + micro nutrient progress bars with demo data',
+      defaultSize: { w: 3, h: 8 },
+      minSize: { w: 2, h: 6 },
+      component: NutritionDemoWidget,
     },
   ],
   actions: [],

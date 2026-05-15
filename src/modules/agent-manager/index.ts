@@ -1,3 +1,4 @@
+import { MasterControllerWidget } from './widgets';
 import type { ModuleDefinition } from '@/types';
 
 export const agentManagerModule: ModuleDefinition = {
@@ -15,7 +16,17 @@ export const agentManagerModule: ModuleDefinition = {
       icon: 'Bot',
     },
   ],
-  widgets: [],
+  widgets: [
+    {
+      id: 'master-controller',
+      moduleId: 'agent-manager',
+      name: 'Master Controller',
+      description: 'Inline AI chat for calendar, Trello, habits and more',
+      defaultSize: { w: 4, h: 6 },
+      minSize: { w: 3, h: 4 },
+      component: MasterControllerWidget,
+    },
+  ],
   actions: [],
   permissions: ['agent-manager:read', 'agent-manager:write'],
 };
