@@ -1,0 +1,164 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Life OS Nutrition API",
+    "description": "Log meals with full nutritional breakdowns to the Life OS backend. Use this action whenever the user describes food they ate or asks you to log a meal.",
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "https://YOUR_DOMAIN_HERE",
+      "description": "Replace with your Cloudflare Pages domain, e.g. https://cwm-os.pages.dev"
+    }
+  ],
+  "paths": {
+    "/api/nutrition/log": {
+      "post": {
+        "operationId": "logMeal",
+        "summary": "Log a meal with nutritional breakdown",
+        "description": "Accepts a structured meal log. Estimate all nutritional values if exact data is unavailable. Always include a confidence score between 0 and 1 for each item and the overall log.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NutritionLog"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Meal logged successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean" },
+                    "log_id": { "type": "string", "format": "uuid" }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid API key",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          }
+        },
+        "security": [{ "bearerAuth": [] }]
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "Pass your LIFE_OS_NUTRITION_API_KEY as a Bearer token"
+      }
+    },
+    "schemas": {
+      "NutritionLog": {
+        "type": "object",
+        "required": ["logged_at", "meal_type", "items", "totals"],
+        "properties": {
+          "logged_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "ISO 8601 datetime of when the meal was eaten. Use the current time if not specified."
+          },
+          "meal_type": {
+            "type": "string",
+            "enum": ["breakfast", "lunch", "dinner", "snack", "unknown"],
+            "description": "Classify the meal based on time of day or user context."
+          },
+          "description": {
+            "type": "string",
+            "description": "The user's original meal description, verbatim."
+          },
+          "items": {
+            "type": "array",
+            "minItems": 1,
+            "items": { "$ref": "#/components/schemas/FoodItem" }
+          },
+          "totals": {
+            "$ref": "#/components/schemas/Macros"
+          },
+          "source": {
+            "type": "string",
+            "default": "chatgpt",
+            "description": "Always set to 'chatgpt' for GPT Action logs."
+          },
+          "confidence": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1,
+            "description": "Overall confidence in nutritional estimates (0–1). Use 0.9+ for branded/labeled foods, 0.6–0.8 for home-cooked meals, 0.4–0.6 for vague descriptions."
+          },
+          "notes": {
+            "type": "string",
+            "description": "Any additional context, assumptions made, or caveats about estimates."
+          }
+        }
+      },
+      "FoodItem": {
+        "type": "object",
+        "required": ["name"],
+        "properties": {
+          "name":       { "type": "string", "description": "Food item name" },
+          "quantity":   { "type": "string", "description": "Portion size, e.g. '1 cup', '200g', '1 large'" },
+          "calories":   { "type": "number", "description": "Kilocalories" },
+          "protein_g":  { "type": "number" },
+          "carbs_g":    { "type": "number" },
+          "fat_g":      { "type": "number" },
+          "fiber_g":    { "type": "number" },
+          "sugar_g":    { "type": "number" },
+          "sodium_mg":  { "type": "number" },
+          "confidence": { "type": "number", "minimum": 0, "maximum": 1 }
+        }
+      },
+      "Macros": {
+        "type": "object",
+        "description": "Sum of all items. Compute these by adding up item values.",
+        "properties": {
+          "calories":  { "type": "number" },
+          "protein_g": { "type": "number" },
+          "carbs_g":   { "type": "number" },
+          "fat_g":     { "type": "number" },
+          "fiber_g":   { "type": "number" },
+          "sugar_g":   { "type": "number" },
+          "sodium_mg": { "type": "number" }
+        }
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "properties": {
+          "error":  { "type": "string" },
+          "detail": { "type": "string" }
+        }
+      }
+    }
+  }
+}
