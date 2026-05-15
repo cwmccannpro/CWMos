@@ -14,6 +14,8 @@ import {
   Target,
   HeartPulse,
   UtensilsCrossed,
+  Pill,
+  Dumbbell,
   type LucideIcon,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -30,6 +32,8 @@ const ICON_MAP: Record<string, LucideIcon> = {
   Target,
   HeartPulse,
   UtensilsCrossed,
+  Pill,
+  Dumbbell,
 };
 
 function NavIcon({ name, size = 18 }: { name?: string; size?: number }) {
