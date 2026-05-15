@@ -1,8 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabase/server';
 
-export const runtime = 'edge';
-
 const MEAL_TYPES = new Set(['breakfast', 'lunch', 'dinner', 'snack', 'unknown']);
 
 function authError() {
