@@ -119,7 +119,7 @@ export function SupplementAnalyticsWidget(_: WidgetProps) {
 
       {/* Today checklist */}
       <div className="flex-1 overflow-y-auto min-h-0">
-        <p className="text-zinc-600 text-[9px] uppercase tracking-wider mb-1.5 shrink-0">Today's checklist</p>
+        <p className="text-zinc-600 text-[9px] uppercase tracking-wider mb-1.5 shrink-0">Today&apos;s checklist</p>
         <div className="space-y-1">
           {active.map((s) => {
             const taken = !!data.supplementLog[`${todayKey}|${s.id}`];
