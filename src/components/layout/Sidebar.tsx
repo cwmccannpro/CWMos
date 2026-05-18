@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import {
   LayoutGrid,
   CalendarDays,
@@ -16,12 +16,14 @@ import {
   UtensilsCrossed,
   Pill,
   Dumbbell,
+  LogOut,
   type LucideIcon,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { registry } from '@/lib/registry';
+import { createClient } from '@/lib/supabase/client';
+import { useEffect, useState } from 'react';
 
-// Map icon name strings (stored in module definitions) to Lucide components
 const ICON_MAP: Record<string, LucideIcon> = {
   LayoutGrid,
   CalendarDays,
@@ -50,8 +52,23 @@ interface SidebarProps {
 
 export function Sidebar({ collapsed, onToggleCollapse, onOpenMasterController }: SidebarProps) {
   const pathname = usePathname();
+  const router = useRouter();
+  const [userEmail, setUserEmail] = useState<string | null>(null);
 
-  // Build nav from registered modules — Dashboard is always first
+  useEffect(() => {
+    const supabase = createClient();
+    supabase.auth.getUser().then(({ data }) => {
+      setUserEmail(data.user?.email ?? null);
+    });
+  }, []);
+
+  async function handleLogout() {
+    const supabase = createClient();
+    await supabase.auth.signOut();
+    router.push('/auth');
+    router.refresh();
+  }
+
   const moduleNavItems = registry.getAllModules().flatMap((mod) =>
     mod.routes.map((route) => ({
       href: route.path,
@@ -113,8 +130,8 @@ export function Sidebar({ collapsed, onToggleCollapse, onOpenMasterController }:
         })}
       </nav>
 
-      {/* Master Controller button */}
-      <div className="px-2 pb-4 shrink-0">
+      {/* Bottom: Master Controller + User */}
+      <div className="px-2 pb-3 space-y-0.5 shrink-0 border-t border-zinc-800 pt-2">
         <button
           onClick={onOpenMasterController}
           className={cn(
@@ -123,11 +140,31 @@ export function Sidebar({ collapsed, onToggleCollapse, onOpenMasterController }:
           )}
           title={collapsed ? 'Master Controller' : undefined}
         >
-          <span className="shrink-0">
-            <Bot size={18} />
-          </span>
+          <span className="shrink-0"><Bot size={18} /></span>
           {!collapsed && <span className="truncate">Master Controller</span>}
         </button>
+
+        {/* User row */}
+        {userEmail && (
+          <div className={cn(
+            'flex items-center gap-2 px-2 py-2 rounded-md',
+            collapsed ? 'justify-center' : 'justify-between'
+          )}>
+            {!collapsed && (
+              <div className="min-w-0 flex-1">
+                <p className="text-zinc-500 text-[10px] uppercase tracking-wider">Signed in as</p>
+                <p className="text-zinc-400 text-xs truncate">{userEmail}</p>
+              </div>
+            )}
+            <button
+              onClick={handleLogout}
+              className="shrink-0 p-1.5 rounded-md text-zinc-600 hover:text-rose-400 hover:bg-zinc-800 transition-colors"
+              title="Sign out"
+            >
+              <LogOut size={14} />
+            </button>
+          </div>
+        )}
       </div>
     </aside>
   );

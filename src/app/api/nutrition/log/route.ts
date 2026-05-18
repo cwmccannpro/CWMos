@@ -46,6 +46,11 @@ export async function POST(req: Request) {
   const totals = body.totals;
 
   // ── Persist ───────────────────────────────────────────────────────────────
+  const targetUserId = process.env.NUTRITION_TARGET_USER_ID;
+  if (!targetUserId) {
+    return NextResponse.json({ error: 'NUTRITION_TARGET_USER_ID not configured' }, { status: 500 });
+  }
+
   try {
     const supabase = createServerClient();
 
@@ -53,7 +58,7 @@ export async function POST(req: Request) {
     const { data: log, error: logError } = await supabase
       .from('nutrition_logs')
       .insert({
-        user_id:         'default',
+        user_id:         targetUserId,
         logged_at:       body.logged_at,
         meal_type:       body.meal_type,
         description:     body.description ?? null,

@@ -1,9 +1,15 @@
 import { NextResponse } from 'next/server';
-import { createServerClient } from '@/lib/supabase/server';
+import { createAuthClient } from '@/lib/supabase/server';
 
 export async function GET() {
   try {
-    const supabase = createServerClient();
+    const supabase = await createAuthClient();
+
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const now = new Date();
 
     // Today's bounds (local midnight → end of day in UTC)
@@ -17,7 +23,7 @@ export async function GET() {
     const { data: todayLogs, error: todayErr } = await supabase
       .from('nutrition_logs')
       .select('meal_type, total_calories, protein_g, carbs_g, fat_g, logged_at, description')
-      .eq('user_id', 'default')
+      .eq('user_id', user.id)
       .gte('logged_at', todayStart)
       .lte('logged_at', todayEnd)
       .order('logged_at', { ascending: false });
@@ -28,7 +34,7 @@ export async function GET() {
     const { data: weekLogs, error: weekErr } = await supabase
       .from('nutrition_logs')
       .select('logged_at, total_calories, protein_g, carbs_g, fat_g')
-      .eq('user_id', 'default')
+      .eq('user_id', user.id)
       .gte('logged_at', sevenDaysAgo)
       .order('logged_at', { ascending: false });
 
@@ -41,7 +47,7 @@ export async function GET() {
         id, logged_at, meal_type, description, total_calories, protein_g, carbs_g, fat_g, source,
         nutrition_log_items ( name, quantity, calories )
       `)
-      .eq('user_id', 'default')
+      .eq('user_id', user.id)
       .order('logged_at', { ascending: false })
       .limit(20);
 
