@@ -52,11 +52,27 @@ paths:
                       type: number
                     fat_g:
                       type: number
+                    saturated_fat_g:
+                      type: number
+                    trans_fat_g:
+                      type: number
                     fiber_g:
                       type: number
                     sugar_g:
                       type: number
+                    cholesterol_mg:
+                      type: number
                     sodium_mg:
+                      type: number
+                    potassium_mg:
+                      type: number
+                    calcium_mg:
+                      type: number
+                    iron_mg:
+                      type: number
+                    vitamin_c_mg:
+                      type: number
+                    vitamin_d_mcg:
                       type: number
                 items:
                   type: array
@@ -80,11 +96,27 @@ paths:
                         type: number
                       fat_g:
                         type: number
+                      saturated_fat_g:
+                        type: number
+                      trans_fat_g:
+                        type: number
                       fiber_g:
                         type: number
                       sugar_g:
                         type: number
+                      cholesterol_mg:
+                        type: number
                       sodium_mg:
+                        type: number
+                      potassium_mg:
+                        type: number
+                      calcium_mg:
+                        type: number
+                      iron_mg:
+                        type: number
+                      vitamin_c_mg:
+                        type: number
+                      vitamin_d_mcg:
                         type: number
                       confidence:
                         type: number
