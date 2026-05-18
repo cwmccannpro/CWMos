@@ -14,10 +14,14 @@ function validationError(msg: string) {
 export async function POST(req: Request) {
   // ── Auth ──────────────────────────────────────────────────────────────────
   const apiKey = process.env.LIFE_OS_NUTRITION_API_KEY;
-  if (!apiKey) return NextResponse.json({ error: 'Server misconfiguration' }, { status: 500 });
+  if (!apiKey) {
+    console.error('[nutrition/log] LIFE_OS_NUTRITION_API_KEY not set');
+    return NextResponse.json({ error: 'Server misconfiguration' }, { status: 500 });
+  }
 
   const authHeader = req.headers.get('Authorization') ?? '';
   if (!authHeader.startsWith('Bearer ') || authHeader.slice(7) !== apiKey) {
+    console.error('[nutrition/log] Auth failed. Header present:', !!authHeader);
     return authError();
   }
 
@@ -48,8 +52,10 @@ export async function POST(req: Request) {
   // ── Persist ───────────────────────────────────────────────────────────────
   const targetUserId = process.env.NUTRITION_TARGET_USER_ID;
   if (!targetUserId) {
+    console.error('[nutrition/log] NUTRITION_TARGET_USER_ID not set');
     return NextResponse.json({ error: 'NUTRITION_TARGET_USER_ID not configured' }, { status: 500 });
   }
+  console.log('[nutrition/log] targetUserId:', targetUserId.slice(0, 8) + '...');
 
   try {
     const supabase = await createServerClient();
