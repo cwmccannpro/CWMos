@@ -52,7 +52,7 @@ export async function POST(req: Request) {
   }
 
   try {
-    const supabase = createServerClient();
+    const supabase = await createServerClient();
 
     // Insert the log row
     const { data: log, error: logError } = await supabase
