@@ -66,26 +66,35 @@ function TrelloCard({ existing }: { existing: StoredIntegration | null }) {
 
 function ICalCard({ existing }: { existing: StoredIntegration | null }) {
   const [open, setOpen] = useState(!existing);
-  const [urls, setUrls] = useState(
-    ((existing?.credentials?.urls as string[]) ?? []).join('\n')
-  );
+  const [urls, setUrls] = useState<string[]>((existing?.credentials?.urls as string[]) ?? []);
+  const [input, setInput] = useState('');
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
+  function addUrl() {
+    const trimmed = input.trim();
+    if (!trimmed || urls.includes(trimmed)) return;
+    setUrls(prev => [...prev, trimmed]);
+    setInput('');
+  }
+
+  function removeUrl(url: string) {
+    setUrls(prev => prev.filter(u => u !== url));
+  }
+
   async function save() {
     setSaving(true);
-    const parsed = urls.split('\n').map(u => u.trim()).filter(Boolean);
     await fetch('/api/integrations', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ provider: 'ical', credentials: { urls: parsed }, enabled: true }),
+      body: JSON.stringify({ provider: 'ical', credentials: { urls }, enabled: true }),
     });
     setSaving(false);
     setSaved(true);
     setTimeout(() => setSaved(false), 3000);
   }
 
-  const connected = !!existing?.credentials?.urls;
+  const connected = urls.length > 0;
 
   return (
     <IntegrationCard
@@ -98,28 +107,47 @@ function ICalCard({ existing }: { existing: StoredIntegration | null }) {
     >
       <div className="space-y-4">
         <Steps steps={[
-          {
-            n: 1, text: 'Apple Calendar: open Calendar app → right-click a calendar → Share → Copy Link',
-          },
+          { n: 1, text: 'Apple Calendar: open Calendar app → right-click a calendar → Share Calendar → Copy Link' },
           {
             n: 2, text: 'Google Calendar: go to', link: { label: 'calendar.google.com', url: 'https://calendar.google.com' },
-            after: '→ Settings (gear) → choose a calendar → "Secret address in iCal format" → copy the link',
+            after: '→ Settings (gear) → choose a calendar → scroll to "Secret address in iCal format" → copy the link',
           },
-          {
-            n: 3, text: 'Paste each URL on a new line below (you can add multiple calendars)',
-          },
+          { n: 3, text: 'Paste the URL below and click Add. Repeat for each calendar.' },
         ]} />
-        <div>
-          <label className="block text-zinc-400 text-xs font-medium mb-1.5">Calendar URLs (one per line)</label>
-          <textarea
-            value={urls}
-            onChange={e => setUrls(e.target.value)}
-            rows={4}
+
+        {/* URL list */}
+        {urls.length > 0 && (
+          <div className="space-y-1.5">
+            {urls.map(url => (
+              <div key={url} className="flex items-center gap-2 bg-zinc-800 rounded-lg px-3 py-2">
+                <span className="flex-1 text-[10px] text-zinc-400 font-mono truncate">{url}</span>
+                <button
+                  onClick={() => removeUrl(url)}
+                  className="shrink-0 text-zinc-600 hover:text-rose-400 transition-colors text-xs"
+                >✕</button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Add URL input */}
+        <div className="flex gap-2">
+          <input
+            type="text"
+            value={input}
+            onChange={e => setInput(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && addUrl()}
             placeholder="https://p71-caldav.icloud.com/published/2/..."
-            className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2.5 text-xs text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/30 transition-colors resize-none font-mono"
+            className="flex-1 bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-xs text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/30 transition-colors font-mono"
           />
+          <button
+            onClick={addUrl}
+            disabled={!input.trim()}
+            className="px-3 py-2 rounded-lg bg-zinc-700 text-zinc-300 text-xs font-medium hover:bg-zinc-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors shrink-0"
+          >Add</button>
         </div>
-        <SaveRow saving={saving} saved={saved} onSave={save} disabled={!urls.trim()} />
+
+        <SaveRow saving={saving} saved={saved} onSave={save} disabled={urls.length === 0} />
       </div>
     </IntegrationCard>
   );
