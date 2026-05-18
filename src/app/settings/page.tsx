@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
   CheckCircle2, XCircle, ChevronDown, ChevronUp,
-  Loader2, ExternalLink, Save, Settings2,
+  Loader2, ExternalLink, Save, Settings2, Copy, RefreshCw,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -153,6 +153,82 @@ function ICalCard({ existing }: { existing: StoredIntegration | null }) {
   );
 }
 
+// ── Nutrition Sync ────────────────────────────────────────────────────────────
+
+function NutritionSyncCard({ existing, onSaved }: { existing: StoredIntegration | null; onSaved: () => void }) {
+  const [open, setOpen] = useState(!existing);
+  const [saving, setSaving] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  const apiKey = existing?.credentials?.api_key as string | undefined;
+
+  async function generate() {
+    setSaving(true);
+    const key = Array.from(crypto.getRandomValues(new Uint8Array(24)))
+      .map(b => b.toString(16).padStart(2, '0')).join('');
+    await fetch('/api/integrations', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ provider: 'nutrition-chatgpt', credentials: { api_key: key }, enabled: true }),
+    });
+    setSaving(false);
+    onSaved();
+  }
+
+  function copy() {
+    if (!apiKey) return;
+    navigator.clipboard.writeText(apiKey);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }
+
+  return (
+    <IntegrationCard
+      name="Nutrition Sync (ChatGPT)"
+      description="Log meals from a Custom GPT directly to your dashboard"
+      logo="🥗"
+      connected={!!apiKey}
+      open={open}
+      onToggle={() => setOpen(v => !v)}
+    >
+      <div className="space-y-4">
+        <Steps steps={[
+          { n: 1, text: 'Click Generate to create your personal API key' },
+          { n: 2, text: 'Copy the key and paste it into your Custom GPT action as the Bearer token' },
+          { n: 3, text: 'Each user gets their own key — meals log to their own account' },
+        ]} />
+
+        {apiKey ? (
+          <div>
+            <label className="block text-zinc-400 text-xs font-medium mb-1.5">Your API Key</label>
+            <div className="flex items-center gap-2">
+              <code className="flex-1 bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-xs text-zinc-300 font-mono truncate">
+                {apiKey}
+              </code>
+              <button onClick={copy} className="shrink-0 p-2 rounded-lg bg-zinc-800 border border-zinc-700 text-zinc-400 hover:text-zinc-200 transition-colors">
+                {copied ? <CheckCircle2 size={13} className="text-emerald-400" /> : <Copy size={13} />}
+              </button>
+              <button onClick={generate} disabled={saving} className="shrink-0 p-2 rounded-lg bg-zinc-800 border border-zinc-700 text-zinc-400 hover:text-zinc-200 transition-colors" title="Regenerate key">
+                {saving ? <Loader2 size={13} className="animate-spin" /> : <RefreshCw size={13} />}
+              </button>
+            </div>
+            <p className="text-zinc-600 text-[10px] mt-1.5">Regenerating will invalidate the old key — update your GPT action too.</p>
+          </div>
+        ) : (
+          <button
+            onClick={generate}
+            disabled={saving}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-500 disabled:opacity-40 transition-colors"
+          >
+            {saving ? <Loader2 size={13} className="animate-spin" /> : null}
+            Generate API Key
+          </button>
+        )}
+      </div>
+    </IntegrationCard>
+  );
+}
+
 // ── Shared UI helpers ─────────────────────────────────────────────────────────
 
 function IntegrationCard({
@@ -297,6 +373,7 @@ export default function SettingsPage() {
           </div>
         ) : (
           <div className="space-y-3">
+            <NutritionSyncCard existing={get('nutrition-chatgpt')} onSaved={load} />
             <TrelloCard existing={get('trello')} />
             <ICalCard existing={get('ical')} />
           </div>

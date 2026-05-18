@@ -12,80 +12,69 @@ function validationError(msg: string) {
 }
 
 export async function POST(req: Request) {
-  // ── Auth ──────────────────────────────────────────────────────────────────
-  const apiKey = process.env.LIFE_OS_NUTRITION_API_KEY;
-  if (!apiKey) {
-    console.error('[nutrition/log] LIFE_OS_NUTRITION_API_KEY not set');
-    return NextResponse.json({ error: 'Server misconfiguration' }, { status: 500 });
-  }
-
   const authHeader = req.headers.get('Authorization') ?? '';
-  if (!authHeader.startsWith('Bearer ') || authHeader.slice(7) !== apiKey) {
-    console.error('[nutrition/log] Auth failed. Header present:', !!authHeader);
-    return authError();
-  }
+  if (!authHeader.startsWith('Bearer ')) return authError();
+  const bearerKey = authHeader.slice(7);
 
-  // ── Parse ─────────────────────────────────────────────────────────────────
+  // ── Resolve user from their personal nutrition API key ────────────────────
+  const supabase = await createServerClient();
+
+  const { data: integration } = await supabase
+    .from('user_integrations')
+    .select('user_id')
+    .eq('provider', 'nutrition-chatgpt')
+    .eq('enabled', true)
+    // credentials->api_key must match the bearer token
+    .filter('credentials->>api_key', 'eq', bearerKey)
+    .single();
+
+  if (!integration) return authError();
+  const targetUserId = integration.user_id;
+
+  // ── Parse ──────────────────────────────────────────────────────────────────
   let body: any;
-  try {
-    body = await req.json();
-  } catch {
+  try { body = await req.json(); } catch {
     return validationError('Invalid JSON body');
   }
 
-  // ── Validate ──────────────────────────────────────────────────────────────
-  if (!body.logged_at || isNaN(Date.parse(body.logged_at))) {
+  // ── Validate ───────────────────────────────────────────────────────────────
+  if (!body.logged_at || isNaN(Date.parse(body.logged_at)))
     return validationError('logged_at must be a valid ISO datetime');
-  }
-  if (!body.meal_type || !MEAL_TYPES.has(body.meal_type)) {
+  if (!body.meal_type || !MEAL_TYPES.has(body.meal_type))
     return validationError(`meal_type must be one of: ${[...MEAL_TYPES].join(', ')}`);
-  }
-  if (!Array.isArray(body.items) || body.items.length === 0) {
+  if (!Array.isArray(body.items) || body.items.length === 0)
     return validationError('items must be a non-empty array');
-  }
-  if (!body.totals || typeof body.totals !== 'object') {
+  if (!body.totals || typeof body.totals !== 'object')
     return validationError('totals object is required');
-  }
 
   const totals = body.totals;
 
-  // ── Persist ───────────────────────────────────────────────────────────────
-  const targetUserId = process.env.NUTRITION_TARGET_USER_ID;
-  if (!targetUserId) {
-    console.error('[nutrition/log] NUTRITION_TARGET_USER_ID not set');
-    return NextResponse.json({ error: 'NUTRITION_TARGET_USER_ID not configured' }, { status: 500 });
-  }
-  console.log('[nutrition/log] targetUserId:', targetUserId.slice(0, 8) + '...');
-
+  // ── Persist ────────────────────────────────────────────────────────────────
   try {
-    const supabase = await createServerClient();
-
-    // Insert the log row
     const { data: log, error: logError } = await supabase
       .from('nutrition_logs')
       .insert({
-        user_id:         targetUserId,
-        logged_at:       body.logged_at,
-        meal_type:       body.meal_type,
-        description:     body.description ?? null,
-        total_calories:  totals.calories ?? null,
-        protein_g:       totals.protein_g ?? null,
-        carbs_g:         totals.carbs_g ?? null,
-        fat_g:           totals.fat_g ?? null,
-        fiber_g:         totals.fiber_g ?? null,
-        sugar_g:         totals.sugar_g ?? null,
-        sodium_mg:       totals.sodium_mg ?? null,
-        source:          body.source ?? 'chatgpt',
-        confidence:      body.confidence ?? null,
-        notes:           body.notes ?? null,
+        user_id:        targetUserId,
+        logged_at:      body.logged_at,
+        meal_type:      body.meal_type,
+        description:    body.description ?? null,
+        total_calories: totals.calories ?? null,
+        protein_g:      totals.protein_g ?? null,
+        carbs_g:        totals.carbs_g ?? null,
+        fat_g:          totals.fat_g ?? null,
+        fiber_g:        totals.fiber_g ?? null,
+        sugar_g:        totals.sugar_g ?? null,
+        sodium_mg:      totals.sodium_mg ?? null,
+        source:         body.source ?? 'chatgpt',
+        confidence:     body.confidence ?? null,
+        notes:          body.notes ?? null,
       })
       .select('id')
       .single();
 
     if (logError) throw logError;
 
-    // Insert items
-    const items = (body.items as any[]).map((item) => ({
+    const items = (body.items as any[]).map(item => ({
       log_id:     log.id,
       name:       item.name,
       quantity:   item.quantity ?? null,
