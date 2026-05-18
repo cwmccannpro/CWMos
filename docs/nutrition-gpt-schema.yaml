@@ -1,0 +1,117 @@
+openapi: 3.1.0
+info:
+  title: CWM Nutrition Logger
+  description: Log meals with macro and micronutrient breakdown to the CWM Control Center dashboard.
+  version: 1.0.0
+servers:
+  - url: https://ctrlpanel.cwmccann.pro
+paths:
+  /api/nutrition/log:
+    post:
+      operationId: logMeal
+      summary: Log a meal with full macro and micronutrient breakdown
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [logged_at, meal_type, items, totals]
+              properties:
+                logged_at:
+                  type: string
+                  format: date-time
+                  description: ISO 8601 datetime of when the meal was eaten (e.g. 2026-05-18T12:30:00Z)
+                meal_type:
+                  type: string
+                  enum: [breakfast, lunch, dinner, snack, unknown]
+                description:
+                  type: string
+                  description: Brief natural language description of the meal
+                source:
+                  type: string
+                  default: chatgpt
+                confidence:
+                  type: number
+                  minimum: 0
+                  maximum: 1
+                  description: Confidence in the nutritional estimates (0-1)
+                notes:
+                  type: string
+                  description: Any additional notes about the meal
+                totals:
+                  type: object
+                  description: Total nutrients for the entire meal
+                  required: [calories]
+                  properties:
+                    calories:
+                      type: number
+                    protein_g:
+                      type: number
+                    carbs_g:
+                      type: number
+                    fat_g:
+                      type: number
+                    fiber_g:
+                      type: number
+                    sugar_g:
+                      type: number
+                    sodium_mg:
+                      type: number
+                items:
+                  type: array
+                  description: Individual food items in the meal
+                  minItems: 1
+                  items:
+                    type: object
+                    required: [name]
+                    properties:
+                      name:
+                        type: string
+                        description: Name of the food item
+                      quantity:
+                        type: string
+                        description: Human-readable quantity (e.g. "1 cup", "200g", "1 large")
+                      calories:
+                        type: number
+                      protein_g:
+                        type: number
+                      carbs_g:
+                        type: number
+                      fat_g:
+                        type: number
+                      fiber_g:
+                        type: number
+                      sugar_g:
+                        type: number
+                      sodium_mg:
+                        type: number
+                      confidence:
+                        type: number
+                        minimum: 0
+                        maximum: 1
+      responses:
+        '201':
+          description: Meal logged successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  log_id:
+                    type: string
+        '400':
+          description: Validation error
+        '401':
+          description: Invalid or missing API key
+        '500':
+          description: Server error
+      security:
+        - BearerAuth: []
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
