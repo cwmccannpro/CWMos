@@ -1,30 +1,19 @@
 import { NextResponse } from 'next/server';
+import { getUserCredentials } from '@/lib/integrations';
 
-const KEY = process.env.TRELLO_API_KEY;
-const TOKEN = process.env.TRELLO_TOKEN;
 const BASE = 'https://api.trello.com/1';
 
-function authParams() {
-  return `key=${KEY}&token=${TOKEN}`;
-}
-
 export async function GET() {
-  if (!KEY || !TOKEN) {
-    return NextResponse.json({ error: 'Trello credentials not configured' }, { status: 500 });
-  }
+  const { userId, credentials } = await getUserCredentials('trello');
+  if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  if (!credentials) return NextResponse.json({ error: 'Trello not connected' }, { status: 503 });
 
-  const res = await fetch(`${BASE}/members/me/boards?filter=open&fields=id,name,shortUrl&${authParams()}`);
-  if (!res.ok) {
-    const text = await res.text();
-    return NextResponse.json({ error: text }, { status: res.status });
-  }
+  const { api_key: KEY, token: TOKEN } = credentials as { api_key: string; token: string };
+  const res = await fetch(`${BASE}/members/me/boards?filter=open&fields=id,name,shortUrl&key=${KEY}&token=${TOKEN}`);
+  if (!res.ok) return NextResponse.json({ error: await res.text() }, { status: res.status });
 
   const data = await res.json();
-  const boards = data.map((b: { id: string; name: string; shortUrl: string }) => ({
-    id: b.id,
-    name: b.name,
-    url: b.shortUrl,
-  }));
-
-  return NextResponse.json(boards);
+  return NextResponse.json(
+    data.map((b: { id: string; name: string; shortUrl: string }) => ({ id: b.id, name: b.name, url: b.shortUrl }))
+  );
 }

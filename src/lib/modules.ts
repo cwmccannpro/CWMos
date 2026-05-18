@@ -8,6 +8,7 @@ import { habitTrackerModule } from '@/modules/habit-tracker';
 import { agentManagerModule } from '@/modules/agent-manager';
 import { viridianSystemsModule } from '@/modules/viridian-systems';
 import { contentFactoryModule } from '@/modules/content-factory';
+import { settingsModule } from '@/modules/settings';
 
 registry.register(calendarModule);
 registry.register(trelloModule);
@@ -18,5 +19,6 @@ registry.register(habitTrackerModule);
 registry.register(agentManagerModule);
 registry.register(viridianSystemsModule);
 registry.register(contentFactoryModule);
+registry.register(settingsModule);
 
 export { registry };

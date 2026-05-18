@@ -1,19 +1,18 @@
 import { NextResponse } from 'next/server';
+import { getUserCredentials } from '@/lib/integrations';
 
-const KEY = process.env.TRELLO_API_KEY;
-const TOKEN = process.env.TRELLO_TOKEN;
 const BASE = 'https://api.trello.com/1';
-
 type TrelloLabel = { id: string; name: string; color: string };
 
 export async function PUT(
   req: Request,
   { params }: { params: Promise<{ cardId: string }> }
 ) {
-  if (!KEY || !TOKEN) {
-    return NextResponse.json({ error: 'Trello credentials not configured' }, { status: 500 });
-  }
+  const { userId, credentials } = await getUserCredentials('trello');
+  if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  if (!credentials) return NextResponse.json({ error: 'Trello not connected' }, { status: 503 });
 
+  const { api_key: KEY, token: TOKEN } = credentials as { api_key: string; token: string };
   const { cardId } = await params;
   const body = await req.json();
 
@@ -26,44 +25,33 @@ export async function PUT(
   if (body.due !== undefined) url.searchParams.set('due', body.due);
 
   const res = await fetch(url.toString(), { method: 'PUT' });
-  if (!res.ok) {
-    const text = await res.text();
-    return NextResponse.json({ error: text }, { status: res.status });
-  }
+  if (!res.ok) return NextResponse.json({ error: await res.text() }, { status: res.status });
 
   const c = await res.json();
   return NextResponse.json({
-    id: c.id,
-    name: c.name,
-    desc: c.desc,
-    listId: c.idList,
-    boardId: c.idBoard,
-    due: c.due,
-    url: c.shortUrl,
-    labels: (c.labels as TrelloLabel[]).map((l) => l.name).filter(Boolean),
+    id: c.id, name: c.name, desc: c.desc, listId: c.idList,
+    boardId: c.idBoard, due: c.due, url: c.shortUrl,
+    labels: (c.labels as TrelloLabel[]).map(l => l.name).filter(Boolean),
   });
 }
 
-// Archive the card (closed=true)
 export async function DELETE(
   _req: Request,
   { params }: { params: Promise<{ cardId: string }> }
 ) {
-  if (!KEY || !TOKEN) {
-    return NextResponse.json({ error: 'Trello credentials not configured' }, { status: 500 });
-  }
+  const { userId, credentials } = await getUserCredentials('trello');
+  if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  if (!credentials) return NextResponse.json({ error: 'Trello not connected' }, { status: 503 });
 
+  const { api_key: KEY, token: TOKEN } = credentials as { api_key: string; token: string };
   const { cardId } = await params;
+
   const url = new URL(`${BASE}/cards/${cardId}`);
   url.searchParams.set('key', KEY);
   url.searchParams.set('token', TOKEN);
   url.searchParams.set('closed', 'true');
 
   const res = await fetch(url.toString(), { method: 'PUT' });
-  if (!res.ok) {
-    const text = await res.text();
-    return NextResponse.json({ error: text }, { status: res.status });
-  }
-
+  if (!res.ok) return NextResponse.json({ error: await res.text() }, { status: res.status });
   return NextResponse.json({ success: true });
 }

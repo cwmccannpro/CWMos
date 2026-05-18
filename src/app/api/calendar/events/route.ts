@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
 
-const ICAL_URLS = (process.env.ICAL_URLS ?? '')
-  .split(',').map(s => s.trim()).filter(Boolean);
+import { getUserCredentials } from '@/lib/integrations';
 
 function unfold(text: string): string {
   return text.replace(/\r\n[ \t]/g, '').replace(/\n[ \t]/g, '');
@@ -182,16 +181,20 @@ function parseIcs(text: string, calendarId: string, from: Date | null, to: Date 
 }
 
 export async function GET(req: Request) {
+  const { userId, credentials } = await getUserCredentials('ical');
+  if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+  const icalUrls: string[] = (credentials?.urls as string[]) ?? [];
+  if (!icalUrls.length)
+    return NextResponse.json({ error: 'No calendars connected. Add iCal URLs in Settings → Integrations.' }, { status: 503 });
+
   const { searchParams } = new URL(req.url);
   const from = searchParams.get('from') ? new Date(searchParams.get('from')!) : null;
   const to = searchParams.get('to') ? new Date(searchParams.get('to')!) : null;
 
-  if (!ICAL_URLS.length)
-    return NextResponse.json({ error: 'No ICAL_URLS configured' }, { status: 500 });
-
   const all: RawEvent[] = [];
 
-  await Promise.allSettled(ICAL_URLS.map(async (url, idx) => {
+  await Promise.allSettled(icalUrls.map(async (url, idx) => {
     try {
       const res = await fetch(url, {
         headers: { 'User-Agent': 'CWMControlCenter/1.0', Accept: 'text/calendar' },

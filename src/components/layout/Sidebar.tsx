@@ -16,6 +16,7 @@ import {
   UtensilsCrossed,
   Pill,
   Dumbbell,
+  Settings2,
   LogOut,
   type LucideIcon,
 } from 'lucide-react';
@@ -36,6 +37,7 @@ const ICON_MAP: Record<string, LucideIcon> = {
   UtensilsCrossed,
   Pill,
   Dumbbell,
+  Settings2,
 };
 
 function NavIcon({ name, size = 18 }: { name?: string; size?: number }) {
