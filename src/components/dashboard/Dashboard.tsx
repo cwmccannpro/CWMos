@@ -128,28 +128,69 @@ export function Dashboard() {
     <div className="p-4">
       {/* Toolbar */}
       <div className="flex items-center justify-between mb-4">
-        <h1 className="text-zinc-100 text-lg font-semibold">Dashboard</h1>
+        <h1
+          className="uppercase"
+          style={{
+            fontFamily: 'var(--font-mono)',
+            fontSize: '0.65rem',
+            letterSpacing: '0.2em',
+            color: 'rgba(0,212,255,0.35)',
+          }}
+        >
+          Dashboard
+        </h1>
 
         <div className="relative">
           <button
             onClick={() => setAddMenuOpen((o) => !o)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-zinc-800 border border-zinc-700 text-zinc-300 text-sm hover:bg-zinc-700 transition-colors"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all duration-200"
+            style={{
+              fontFamily: 'var(--font-mono)',
+              fontSize: '0.62rem',
+              letterSpacing: '0.08em',
+              color: '#00D4FF',
+              border: '1px solid rgba(0,212,255,0.25)',
+              background: 'rgba(0,212,255,0.04)',
+            }}
+            onMouseEnter={e => {
+              (e.currentTarget as HTMLElement).style.background = 'rgba(0,212,255,0.1)';
+              (e.currentTarget as HTMLElement).style.borderColor = 'rgba(0,212,255,0.5)';
+              (e.currentTarget as HTMLElement).style.boxShadow = '0 0 14px rgba(0,212,255,0.18)';
+            }}
+            onMouseLeave={e => {
+              (e.currentTarget as HTMLElement).style.background = 'rgba(0,212,255,0.04)';
+              (e.currentTarget as HTMLElement).style.borderColor = 'rgba(0,212,255,0.25)';
+              (e.currentTarget as HTMLElement).style.boxShadow = 'none';
+            }}
           >
-            <Plus size={14} />
-            Add widget
+            <Plus size={12} />
+            + MODULE
           </button>
 
           {addMenuOpen && (
             <>
               <div className="fixed inset-0 z-10" onClick={() => setAddMenuOpen(false)} />
-              <div className="absolute right-0 mt-1 z-20 w-64 bg-zinc-800 border border-zinc-700 rounded-xl shadow-xl overflow-hidden max-h-[70vh] overflow-y-auto">
+              <div
+                className="absolute right-0 mt-1 z-20 w-64 rounded-xl shadow-2xl overflow-hidden max-h-[70vh] overflow-y-auto"
+                style={{
+                  background: 'rgba(8,12,20,0.97)',
+                  border: '1px solid rgba(0,212,255,0.15)',
+                  backdropFilter: 'blur(16px)',
+                }}
+              >
                 {availableWidgets.length === 0 ? (
-                  <p className="px-3 py-2 text-zinc-500 text-sm">No widgets available</p>
+                  <p className="px-3 py-2 text-zinc-500 text-xs">No widgets available</p>
                 ) : (
                   Object.entries(widgetsByModule).map(([moduleId, defs]) => (
                     <div key={moduleId}>
-                      <div className="px-3 pt-2.5 pb-1">
-                        <span className="text-zinc-500 text-[10px] uppercase tracking-widest font-semibold">
+                      <div className="px-3 pt-3 pb-1.5">
+                        <span style={{
+                          fontFamily: 'var(--font-mono)',
+                          fontSize: '0.55rem',
+                          letterSpacing: '0.18em',
+                          color: 'rgba(0,212,255,0.4)',
+                          textTransform: 'uppercase',
+                        }}>
                           {moduleId}
                         </span>
                       </div>
@@ -157,10 +198,13 @@ export function Dashboard() {
                         <button
                           key={`${def.moduleId}/${def.id}`}
                           onClick={() => handleAddWidget(def)}
-                          className="w-full flex flex-col items-start px-3 py-2 text-sm hover:bg-zinc-700 transition-colors"
+                          className="w-full flex flex-col items-start px-3 py-2.5 transition-all duration-150"
+                          style={{ borderTop: '1px solid rgba(255,255,255,0.03)' }}
+                          onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = 'rgba(0,212,255,0.05)'}
+                          onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'transparent'}
                         >
-                          <span className="text-zinc-200 font-medium">{def.name}</span>
-                          <span className="text-zinc-500 text-xs">{def.description}</span>
+                          <span className="text-zinc-200 text-xs">{def.name}</span>
+                          <span className="text-[10px]" style={{ color: 'rgba(160,175,200,0.4)' }}>{def.description}</span>
                         </button>
                       ))}
                     </div>

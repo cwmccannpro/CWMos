@@ -3,9 +3,6 @@
 import { useState } from 'react';
 import { Sidebar } from './Sidebar';
 import { MasterController } from '@/components/master-controller/MasterController';
-
-// Bootstrap registers all modules into the registry on first import.
-// Importing here ensures modules are available on every client page load.
 import '@/lib/modules';
 
 interface AppShellProps {
@@ -17,14 +14,23 @@ export function AppShell({ children }: AppShellProps) {
   const [mcOpen, setMcOpen] = useState(false);
 
   return (
-    <div className="flex h-screen w-screen overflow-hidden bg-zinc-950 text-zinc-100">
+    <div
+      className="flex h-screen w-screen overflow-hidden text-zinc-100"
+      style={{ background: '#080B10' }}
+    >
       <Sidebar
         collapsed={sidebarCollapsed}
         onToggleCollapse={() => setSidebarCollapsed((c) => !c)}
         onOpenMasterController={() => setMcOpen(true)}
       />
 
-      <main className="flex-1 overflow-y-auto">
+      {/* Main content with radial glow */}
+      <main
+        className="flex-1 overflow-y-auto relative"
+        style={{
+          background: 'radial-gradient(ellipse 90% 55% at 50% 35%, rgba(0,25,55,0.45) 0%, transparent 70%), #080B10',
+        }}
+      >
         {children}
       </main>
 

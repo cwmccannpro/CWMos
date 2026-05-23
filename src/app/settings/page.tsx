@@ -22,17 +22,24 @@ function TrelloCard({ existing }: { existing: StoredIntegration | null }) {
   const [token, setToken] = useState((existing?.credentials?.token as string) ?? '');
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   async function save() {
     setSaving(true);
-    await fetch('/api/integrations', {
+    setSaveError(null);
+    const res = await fetch('/api/integrations', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ provider: 'trello', credentials: { api_key: apiKey, token }, enabled: true }),
     });
     setSaving(false);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 3000);
+    if (res.ok) {
+      setSaved(true);
+      setTimeout(() => setSaved(false), 3000);
+    } else {
+      const body = await res.json().catch(() => ({}));
+      setSaveError(body.error ?? `Save failed (${res.status})`);
+    }
   }
 
   const connected = !!existing?.credentials?.api_key;
@@ -56,7 +63,7 @@ function TrelloCard({ existing }: { existing: StoredIntegration | null }) {
           <Field label="API Key" value={apiKey} onChange={setApiKey} placeholder="trello api key" />
           <Field label="Token" value={token} onChange={setToken} placeholder="trello token" />
         </div>
-        <SaveRow saving={saving} saved={saved} onSave={save} disabled={!apiKey || !token} />
+        <SaveRow saving={saving} saved={saved} saveError={saveError} onSave={save} disabled={!apiKey || !token} />
       </div>
     </IntegrationCard>
   );
@@ -70,6 +77,7 @@ function ICalCard({ existing }: { existing: StoredIntegration | null }) {
   const [input, setInput] = useState('');
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   function addUrl() {
     const trimmed = input.trim();
@@ -84,14 +92,20 @@ function ICalCard({ existing }: { existing: StoredIntegration | null }) {
 
   async function save() {
     setSaving(true);
-    await fetch('/api/integrations', {
+    setSaveError(null);
+    const res = await fetch('/api/integrations', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ provider: 'ical', credentials: { urls }, enabled: true }),
     });
     setSaving(false);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 3000);
+    if (res.ok) {
+      setSaved(true);
+      setTimeout(() => setSaved(false), 3000);
+    } else {
+      const body = await res.json().catch(() => ({}));
+      setSaveError(body.error ?? `Save failed (${res.status})`);
+    }
   }
 
   const connected = urls.length > 0;
@@ -147,7 +161,7 @@ function ICalCard({ existing }: { existing: StoredIntegration | null }) {
           >Add</button>
         </div>
 
-        <SaveRow saving={saving} saved={saved} onSave={save} disabled={urls.length === 0} />
+        <SaveRow saving={saving} saved={saved} saveError={saveError} onSave={save} disabled={urls.length === 0} />
       </div>
     </IntegrationCard>
   );
@@ -159,20 +173,27 @@ function NutritionSyncCard({ existing, onSaved }: { existing: StoredIntegration 
   const [open, setOpen] = useState(!existing);
   const [saving, setSaving] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   const apiKey = existing?.credentials?.api_key as string | undefined;
 
   async function generate() {
     setSaving(true);
+    setSaveError(null);
     const key = Array.from(crypto.getRandomValues(new Uint8Array(24)))
       .map(b => b.toString(16).padStart(2, '0')).join('');
-    await fetch('/api/integrations', {
+    const res = await fetch('/api/integrations', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ provider: 'nutrition-chatgpt', credentials: { api_key: key }, enabled: true }),
     });
     setSaving(false);
-    onSaved();
+    if (res.ok) {
+      onSaved();
+    } else {
+      const body = await res.json().catch(() => ({}));
+      setSaveError(body.error ?? `Save failed (${res.status})`);
+    }
   }
 
   function copy() {
@@ -224,6 +245,7 @@ function NutritionSyncCard({ existing, onSaved }: { existing: StoredIntegration 
             Generate API Key
           </button>
         )}
+        {saveError && <p className="text-rose-400 text-xs mt-2">{saveError}</p>}
       </div>
     </IntegrationCard>
   );
@@ -319,12 +341,13 @@ function Field({ label, value, onChange, placeholder }: {
   );
 }
 
-function SaveRow({ saving, saved, onSave, disabled }: {
-  saving: boolean; saved: boolean; onSave: () => void; disabled: boolean;
+function SaveRow({ saving, saved, saveError, onSave, disabled }: {
+  saving: boolean; saved: boolean; saveError?: string | null; onSave: () => void; disabled: boolean;
 }) {
   return (
     <div className="flex items-center justify-between">
       {saved && <p className="text-emerald-400 text-xs">Saved successfully</p>}
+      {!saved && saveError && <p className="text-rose-400 text-xs">{saveError}</p>}
       <div className="ml-auto">
         <button
           onClick={onSave}

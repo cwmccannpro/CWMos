@@ -58,27 +58,53 @@ export function CalendarUpcomingWidget({ widgetInstanceId }: WidgetProps) {
   return (
     <div className="h-full flex flex-col gap-2 overflow-hidden">
       <div className="flex items-center gap-2 shrink-0">
-        <CalendarClock size={12} className="text-blue-400 shrink-0" />
-        <span className="text-zinc-400 text-xs font-medium uppercase tracking-wider">Today</span>
-        <span className="text-zinc-600 text-[10px] truncate">{dayLabel}</span>
+        <CalendarClock size={11} style={{ color: '#00D4FF', flexShrink: 0 }} />
+        <span style={{
+          fontFamily: 'var(--font-mono)',
+          fontSize: '0.55rem',
+          letterSpacing: '0.16em',
+          textTransform: 'uppercase',
+          color: 'rgba(0,212,255,0.4)',
+        }}>
+          Today
+        </span>
+        <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.52rem', color: 'rgba(160,175,200,0.35)' }}>
+          {dayLabel}
+        </span>
       </div>
       {loading ? (
         <div className="space-y-1.5">
-          {[1, 2, 3].map((i) => <div key={i} className="h-7 bg-zinc-800 rounded animate-pulse" />)}
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="h-6 rounded animate-pulse" style={{ background: 'rgba(0,212,255,0.04)' }} />
+          ))}
         </div>
       ) : events.length === 0 ? (
-        <p className="text-zinc-600 text-xs">Nothing scheduled today</p>
+        <p style={{ fontFamily: 'var(--font-mono)', fontSize: '0.58rem', color: 'rgba(160,175,200,0.3)' }}>
+          Nothing scheduled today
+        </p>
       ) : (
         <ul className="space-y-px overflow-y-auto flex-1">
           {events.map((e, i) => {
             const c = colorMap.get(e.calendarName ?? e.calendarId ?? 'default') ?? FALLBACK_COLOR;
             return (
-              <li key={`${e.id}-${i}`} className={cn('flex items-center gap-0 rounded overflow-hidden text-xs', c.bg)}>
-                <span className={cn('tabular-nums shrink-0 text-[10px] w-14 text-right px-2 py-1.5 font-medium', c.text)}>
-                  {e.allDay ? 'all‑day' : fmtTime(e.start)}
+              <li
+                key={`${e.id}-${i}`}
+                className={cn('flex items-center gap-0 rounded overflow-hidden', c.bg)}
+                style={{ border: '1px solid rgba(0,212,255,0.06)' }}
+              >
+                <span
+                  className={cn('tabular-nums shrink-0 text-right px-2 py-1.5', c.text)}
+                  style={{ fontFamily: 'var(--font-mono)', fontSize: '0.58rem', width: '3.2rem' }}
+                >
+                  {e.allDay ? 'all‑d' : fmtTime(e.start)}
                 </span>
-                <div className={cn('w-px self-stretch', c.text, 'opacity-40 bg-current')} />
-                <span className="text-zinc-200 truncate flex-1 px-2 py-1.5">{e.title}</span>
+                <div className={cn('w-px self-stretch bg-current opacity-30', c.text)} />
+                <span
+                  className="truncate flex-1 px-2 py-1.5"
+                  style={{ fontSize: '0.7rem', color: 'rgba(220,235,255,0.82)' }}
+                >
+                  {e.title}
+                </span>
               </li>
             );
           })}
@@ -259,17 +285,41 @@ export function CalendarWeekWidget({ widgetInstanceId }: WidgetProps) {
   return (
     <div className="flex flex-col h-full overflow-hidden">
       {/* Day header */}
-      <div className="flex border-b border-zinc-800 shrink-0">
+      <div className="flex shrink-0" style={{ borderBottom: '1px solid rgba(0,212,255,0.08)' }}>
         <div className="w-8 shrink-0" />
         {days.map((day, i) => {
           const isT = i === todayIdx;
           return (
-            <div key={i} className="flex-1 text-center py-1 border-l border-zinc-800/40 first:border-l-0">
-              <div className="text-[9px] text-zinc-600 uppercase">{W_DAYS[day.getUTCDay()]}</div>
-              <div className={cn(
-                'inline-flex w-5 h-5 items-center justify-center rounded-full text-[10px] font-medium mt-0.5',
-                isT ? 'bg-blue-600 text-white' : 'text-zinc-400'
-              )}>
+            <div
+              key={i}
+              className="flex-1 text-center py-1"
+              style={{ borderLeft: '1px solid rgba(0,212,255,0.06)' }}
+            >
+              <div style={{
+                fontFamily: 'var(--font-mono)',
+                fontSize: '0.5rem',
+                letterSpacing: '0.1em',
+                textTransform: 'uppercase',
+                color: isT ? 'rgba(0,212,255,0.6)' : 'rgba(160,175,200,0.3)',
+              }}>
+                {W_DAYS[day.getUTCDay()]}
+              </div>
+              <div style={{
+                display: 'inline-flex',
+                width: '20px',
+                height: '20px',
+                alignItems: 'center',
+                justifyContent: 'center',
+                borderRadius: '50%',
+                marginTop: '2px',
+                fontFamily: 'var(--font-mono)',
+                fontSize: '0.58rem',
+                fontWeight: isT ? '700' : '400',
+                background: isT ? 'rgba(0,212,255,0.15)' : 'transparent',
+                color: isT ? '#00D4FF' : 'rgba(160,175,200,0.45)',
+                boxShadow: isT ? '0 0 8px rgba(0,212,255,0.3)' : 'none',
+                border: isT ? '1px solid rgba(0,212,255,0.3)' : 'none',
+              }}>
                 {day.getUTCDate()}
               </div>
             </div>
@@ -279,16 +329,24 @@ export function CalendarWeekWidget({ widgetInstanceId }: WidgetProps) {
 
       {/* All-day strip */}
       {hasAllDay && (
-        <div className="flex border-b border-zinc-800 shrink-0 bg-zinc-950/40">
+        <div className="flex shrink-0" style={{ borderBottom: '1px solid rgba(0,212,255,0.06)', background: 'rgba(0,212,255,0.02)' }}>
           <div className="w-8 shrink-0 flex items-center justify-end pr-1">
-            <span className="text-[8px] text-zinc-700">all‑d</span>
+            <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.45rem', color: 'rgba(0,212,255,0.25)' }}>all</span>
           </div>
           {allDayByDay.map((dayEvts, i) => (
-            <div key={i} className="flex-1 border-l border-zinc-800/40 first:border-l-0 px-0.5 py-0.5 min-h-[16px]">
+            <div
+              key={i}
+              className="flex-1 px-0.5 py-0.5 min-h-[16px]"
+              style={{ borderLeft: '1px solid rgba(0,212,255,0.06)' }}
+            >
               {dayEvts.map((e, j) => {
                 const c = colorMap.get(e.calendarName ?? e.calendarId ?? 'default') ?? FALLBACK_COLOR;
                 return (
-                  <div key={`${e.id}-${j}`} className={cn('text-[8px] rounded px-0.5 truncate leading-4', c.bg, c.text)}>
+                  <div
+                    key={`${e.id}-${j}`}
+                    className={cn('text-[8px] rounded px-0.5 truncate leading-4', c.bg, c.text)}
+                    style={{ border: '1px solid rgba(0,212,255,0.1)' }}
+                  >
                     {e.title}
                   </div>
                 );
@@ -302,12 +360,21 @@ export function CalendarWeekWidget({ widgetInstanceId }: WidgetProps) {
       <div ref={scrollRef} className="flex-1 overflow-y-auto">
         <div className="flex" style={{ height: W_TOTAL * W_HOUR_H }}>
           {/* Hour labels */}
-          <div className="w-8 shrink-0 relative border-r border-zinc-800">
+          <div className="w-8 shrink-0 relative" style={{ borderRight: '1px solid rgba(0,212,255,0.06)' }}>
             {Array.from({ length: W_TOTAL }).map((_, i) => (
               <div
                 key={i}
-                style={{ position: 'absolute', top: i * W_HOUR_H - 6, right: 0, left: 0 }}
-                className="text-right text-[8px] text-zinc-700 pr-1"
+                style={{
+                  position: 'absolute',
+                  top: i * W_HOUR_H - 6,
+                  right: 0,
+                  left: 0,
+                  textAlign: 'right',
+                  paddingRight: '4px',
+                  fontFamily: 'var(--font-mono)',
+                  fontSize: '0.48rem',
+                  color: 'rgba(0,212,255,0.2)',
+                }}
               >
                 {i > 0 ? fmtHour(W_START + i) : ''}
               </div>
@@ -321,39 +388,68 @@ export function CalendarWeekWidget({ widgetInstanceId }: WidgetProps) {
             return (
               <div
                 key={dayIdx}
-                className={cn(
-                  'flex-1 relative border-l border-zinc-800/40 first:border-l-0',
-                  isT && 'bg-blue-950/10'
-                )}
+                className="flex-1 relative"
+                style={{
+                  borderLeft: '1px solid rgba(0,212,255,0.05)',
+                  background: isT ? 'rgba(0,212,255,0.025)' : 'transparent',
+                }}
               >
-                {/* Grid lines */}
+                {/* Hour grid lines */}
                 {Array.from({ length: W_TOTAL }).map((_, i) => (
                   <div
                     key={i}
-                    style={{ position: 'absolute', top: i * W_HOUR_H, left: 0, right: 0 }}
-                    className="border-t border-zinc-800/50"
+                    style={{
+                      position: 'absolute',
+                      top: i * W_HOUR_H,
+                      left: 0, right: 0,
+                      borderTop: '1px solid rgba(255,255,255,0.04)',
+                    }}
                   />
                 ))}
                 {Array.from({ length: W_TOTAL }).map((_, i) => (
                   <div
                     key={`h${i}`}
-                    style={{ position: 'absolute', top: i * W_HOUR_H + W_HOUR_H / 2, left: 0, right: 0 }}
-                    className="border-t border-zinc-800/20"
+                    style={{
+                      position: 'absolute',
+                      top: i * W_HOUR_H + W_HOUR_H / 2,
+                      left: 0, right: 0,
+                      borderTop: '1px solid rgba(255,255,255,0.02)',
+                    }}
                   />
                 ))}
 
-                {/* Current time */}
+                {/* Current time — cyan line with glowing dot */}
                 {isT && nowTop >= 0 && nowTop <= W_TOTAL * W_HOUR_H && (
                   <div
-                    style={{ position: 'absolute', top: nowTop, left: 0, right: 0, zIndex: 20 }}
-                    className="flex items-center pointer-events-none"
+                    style={{
+                      position: 'absolute',
+                      top: nowTop,
+                      left: 0, right: 0,
+                      zIndex: 20,
+                      display: 'flex',
+                      alignItems: 'center',
+                      pointerEvents: 'none',
+                    }}
                   >
-                    <div className="w-1.5 h-1.5 rounded-full bg-blue-500 shrink-0 -ml-0.75" />
-                    <div className="flex-1 h-px bg-blue-500" />
+                    <div style={{
+                      width: '6px',
+                      height: '6px',
+                      borderRadius: '50%',
+                      background: '#00D4FF',
+                      flexShrink: 0,
+                      marginLeft: '-3px',
+                      boxShadow: '0 0 6px rgba(0,212,255,0.9), 0 0 12px rgba(0,212,255,0.4)',
+                    }} />
+                    <div style={{
+                      flex: 1,
+                      height: '1px',
+                      background: 'linear-gradient(90deg, #00D4FF 0%, rgba(0,212,255,0.3) 70%, transparent 100%)',
+                      boxShadow: '0 0 4px rgba(0,212,255,0.5)',
+                    }} />
                   </div>
                 )}
 
-                {/* Events */}
+                {/* Event pills */}
                 {laid.map(({ event: e, col, total, span }, i) => {
                   const s = new Date(e.start);
                   const en = new Date(e.end);
@@ -371,10 +467,16 @@ export function CalendarWeekWidget({ widgetInstanceId }: WidgetProps) {
                         left: `${col * w + 0.5}%`,
                         width: `${w * span - 1}%`,
                         zIndex: 10,
+                        borderRadius: '6px',
+                        overflow: 'hidden',
+                        border: '1px solid rgba(0,212,255,0.15)',
+                        cursor: 'default',
                       }}
-                      className={cn('rounded px-0.5 overflow-hidden cursor-default', c.bg, c.text)}
+                      className={cn(c.bg, c.text)}
                     >
-                      <div className="text-[8px] font-medium leading-tight truncate">{e.title}</div>
+                      <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.5rem', fontWeight: '500', lineHeight: '1.2', padding: '2px 3px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {e.title}
+                      </div>
                     </div>
                   );
                 })}

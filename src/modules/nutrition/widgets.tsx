@@ -1,8 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Flame, Beef, Wheat, Droplets } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { Flame } from 'lucide-react';
+import { GlowBar } from '@/components/ui/GlowBar';
 import type { WidgetProps } from '@/types';
 
 interface TodaySummary {
@@ -21,17 +21,97 @@ interface WeekSummary {
 
 const GOALS = { calories: 2500, protein_g: 180, carbs_g: 250, fat_g: 80 };
 
-function Ring({ value, goal, color, size = 48 }: { value: number; goal: number; color: string; size?: number }) {
-  const r = (size - 6) / 2;
-  const circ = 2 * Math.PI * r;
+// ── Glowing circular ring ─────────────────────────────────────────────────────
+
+function GlowRing({ value, goal, size = 56 }: { value: number; goal: number; size?: number }) {
   const pct = Math.min(1, value / goal);
+  const r = (size - 8) / 2;
+  const circ = 2 * Math.PI * r;
+  const pctNum = Math.round(pct * 100);
+
+  const stroke = pct >= 0.8 ? '#F59E0B' : pct >= 0.5 ? '#00D4FF' : '#8B5CF6';
+  const glowColor = pct >= 0.8
+    ? 'rgba(245,158,11,0.65)'
+    : pct >= 0.5
+    ? 'rgba(0,212,255,0.65)'
+    : 'rgba(139,92,246,0.55)';
+
   return (
-    <svg width={size} height={size} className="-rotate-90">
-      <circle cx={size/2} cy={size/2} r={r} fill="none" stroke="#27272a" strokeWidth={5} />
-      <circle cx={size/2} cy={size/2} r={r} fill="none" stroke={color}
-        strokeWidth={5} strokeLinecap="round"
-        strokeDasharray={circ} strokeDashoffset={circ * (1 - pct)} />
-    </svg>
+    <div className="relative shrink-0" style={{ width: size, height: size }}>
+      <svg width={size} height={size} style={{ transform: 'rotate(-90deg)' }}>
+        <circle cx={size/2} cy={size/2} r={r} fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth={5} />
+        <circle
+          cx={size/2} cy={size/2} r={r} fill="none"
+          stroke={stroke} strokeWidth={5} strokeLinecap="round"
+          strokeDasharray={circ} strokeDashoffset={circ * (1 - pct)}
+          style={{ filter: `drop-shadow(0 0 4px ${glowColor})` }}
+        />
+      </svg>
+      <div className="absolute inset-0 flex items-center justify-center">
+        <span style={{
+          fontFamily: 'var(--font-mono)',
+          fontSize: '0.58rem',
+          fontWeight: '700',
+          color: stroke,
+          textShadow: `0 0 10px ${glowColor}`,
+        }}>
+          {pctNum}%
+        </span>
+      </div>
+    </div>
+  );
+}
+
+// ── Mono readout number ───────────────────────────────────────────────────────
+
+function Readout({ value, unit, label }: { value: string | number; unit?: string; label?: string }) {
+  return (
+    <div>
+      {label && (
+        <p style={{
+          fontFamily: 'var(--font-mono)',
+          fontSize: '0.48rem',
+          letterSpacing: '0.14em',
+          textTransform: 'uppercase',
+          color: 'rgba(160,175,200,0.4)',
+          marginBottom: '2px',
+        }}>
+          {label}
+        </p>
+      )}
+      <p style={{
+        fontFamily: 'var(--font-mono)',
+        fontSize: '1.5rem',
+        fontWeight: '700',
+        letterSpacing: '0.04em',
+        color: '#ffffff',
+        textShadow: '0 0 20px rgba(0,212,255,0.18)',
+        lineHeight: 1,
+        fontVariantNumeric: 'tabular-nums',
+      }}>
+        {typeof value === 'number' ? value.toLocaleString() : value}
+        {unit && (
+          <span style={{ fontSize: '0.65rem', color: 'rgba(160,175,200,0.45)', marginLeft: '3px', fontWeight: 400 }}>
+            {unit}
+          </span>
+        )}
+      </p>
+    </div>
+  );
+}
+
+function SectionLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <p style={{
+      fontFamily: 'var(--font-mono)',
+      fontSize: '0.5rem',
+      letterSpacing: '0.16em',
+      textTransform: 'uppercase',
+      color: 'rgba(0,212,255,0.3)',
+      marginBottom: '6px',
+    }}>
+      {children}
+    </p>
   );
 }
 
@@ -44,57 +124,69 @@ export function NutritionTodayWidget({ widgetInstanceId }: WidgetProps) {
 
   useEffect(() => {
     fetch('/api/nutrition/summary')
-      .then((r) => r.json())
-      .then((d) => { if (!d.error) setToday(d.today); else setError(true); })
+      .then(r => r.json())
+      .then(d => { if (!d.error) setToday(d.today); else setError(true); })
       .catch(() => setError(true))
       .finally(() => setLoading(false));
 
-    const interval = setInterval(() => {
-      fetch('/api/nutrition/summary').then((r) => r.json()).then((d) => { if (!d.error) setToday(d.today); });
+    const iv = setInterval(() => {
+      fetch('/api/nutrition/summary').then(r => r.json()).then(d => { if (!d.error) setToday(d.today); });
     }, 5 * 60 * 1000);
-    return () => clearInterval(interval);
+    return () => clearInterval(iv);
   }, [widgetInstanceId]);
 
-  if (loading) return <div className="h-full flex items-center justify-center"><div className="h-4 w-24 bg-zinc-800 rounded animate-pulse" /></div>;
-  if (error || !today) return <p className="text-zinc-600 text-xs">Configure Supabase to enable nutrition tracking.</p>;
+  if (loading) return (
+    <div className="h-full flex items-center justify-center">
+      <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.55rem', color: 'rgba(0,212,255,0.3)', letterSpacing: '0.12em' }}>
+        LOADING…
+      </div>
+    </div>
+  );
+  if (error || !today) return (
+    <p style={{ fontFamily: 'var(--font-mono)', fontSize: '0.6rem', color: 'rgba(160,175,200,0.35)' }}>
+      Configure Supabase to enable nutrition tracking.
+    </p>
+  );
+
+  const remaining = GOALS.calories - today.calories;
 
   return (
     <div className="h-full flex flex-col gap-3 overflow-hidden">
       <div className="flex items-center gap-2 shrink-0">
-        <Flame size={12} className="text-orange-400 shrink-0" />
-        <span className="text-zinc-400 text-xs font-medium uppercase tracking-wider">Today</span>
-        <span className="text-zinc-600 text-[10px]">{today.meal_count} meal{today.meal_count !== 1 ? 's' : ''}</span>
+        <Flame size={11} style={{ color: '#F59E0B', flexShrink: 0 }} />
+        <span style={{
+          fontFamily: 'var(--font-mono)',
+          fontSize: '0.55rem',
+          letterSpacing: '0.16em',
+          textTransform: 'uppercase',
+          color: 'rgba(0,212,255,0.4)',
+        }}>
+          Today · {today.meal_count} meal{today.meal_count !== 1 ? 's' : ''}
+        </span>
       </div>
 
-      {/* Calories big number */}
       <div className="flex items-center gap-3 shrink-0">
-        <Ring value={today.calories} goal={GOALS.calories} color="#f97316" size={52} />
-        <div>
-          <p className="text-zinc-100 text-xl font-bold tabular-nums leading-none">{today.calories.toLocaleString()}</p>
-          <p className="text-zinc-600 text-[10px] mt-0.5">of {GOALS.calories.toLocaleString()} kcal</p>
+        <GlowRing value={today.calories} goal={GOALS.calories} size={54} />
+        <div className="flex flex-col gap-1">
+          <Readout value={today.calories} unit="kcal" />
+          <p style={{
+            fontFamily: 'var(--font-mono)',
+            fontSize: '0.52rem',
+            color: remaining > 0 ? 'rgba(0,212,255,0.45)' : 'rgba(139,92,246,0.6)',
+          }}>
+            {remaining > 0 ? `${remaining.toLocaleString()} remaining` : `${Math.abs(remaining).toLocaleString()} over`}
+          </p>
         </div>
       </div>
 
-      {/* Macro mini rows */}
-      <div className="space-y-1.5 flex-1 overflow-hidden">
+      <div className="flex-1 space-y-2.5 overflow-hidden">
+        <SectionLabel>Macros</SectionLabel>
         {[
-          { icon: Beef,     label: 'Protein', val: today.protein_g, goal: GOALS.protein_g, color: 'bg-red-500'   },
-          { icon: Wheat,    label: 'Carbs',   val: today.carbs_g,   goal: GOALS.carbs_g,   color: 'bg-amber-500' },
-          { icon: Droplets, label: 'Fat',     val: today.fat_g,     goal: GOALS.fat_g,     color: 'bg-blue-500'  },
-        ].map(({ icon: Icon, label, val, goal, color }) => (
-          <div key={label}>
-            <div className="flex items-center justify-between mb-0.5">
-              <div className="flex items-center gap-1.5">
-                <Icon size={10} className="text-zinc-600" />
-                <span className="text-zinc-500 text-[10px]">{label}</span>
-              </div>
-              <span className="text-zinc-400 text-[10px] tabular-nums">{val}g</span>
-            </div>
-            <div className="h-1 bg-zinc-800 rounded-full overflow-hidden">
-              <div className={cn('h-full rounded-full', color)}
-                style={{ width: `${Math.min(100, (val / goal) * 100)}%` }} />
-            </div>
-          </div>
+          { label: 'Protein', val: today.protein_g, goal: GOALS.protein_g, unit: 'g' },
+          { label: 'Carbs',   val: today.carbs_g,   goal: GOALS.carbs_g,   unit: 'g' },
+          { label: 'Fat',     val: today.fat_g,     goal: GOALS.fat_g,     unit: 'g' },
+        ].map(({ label, val, goal, unit }) => (
+          <GlowBar key={label} value={val} goal={goal} label={label} valueLabel={`${val}${unit}/${goal}${unit}`} />
         ))}
       </div>
     </div>
@@ -110,155 +202,158 @@ export function NutritionWeekWidget({ widgetInstanceId }: WidgetProps) {
 
   useEffect(() => {
     fetch('/api/nutrition/summary')
-      .then((r) => r.json())
-      .then((d) => { if (!d.error) { setWeek(d.week); setToday(d.today); } })
+      .then(r => r.json())
+      .then(d => { if (!d.error) { setWeek(d.week); setToday(d.today); } })
       .finally(() => setLoading(false));
   }, [widgetInstanceId]);
 
-  if (loading) return <div className="h-full flex items-center justify-center"><div className="h-4 w-24 bg-zinc-800 rounded animate-pulse" /></div>;
-  if (!week || !today) return <p className="text-zinc-600 text-xs">Configure Supabase to enable nutrition tracking.</p>;
+  if (loading) return (
+    <div className="h-full flex items-center justify-center">
+      <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.55rem', color: 'rgba(0,212,255,0.3)', letterSpacing: '0.12em' }}>
+        LOADING…
+      </div>
+    </div>
+  );
+  if (!week || !today) return (
+    <p style={{ fontFamily: 'var(--font-mono)', fontSize: '0.6rem', color: 'rgba(160,175,200,0.35)' }}>
+      Configure Supabase to enable nutrition tracking.
+    </p>
+  );
 
-  const calDiff = today.calories - week.avg_calories;
+  const calDelta = today.calories - week.avg_calories;
   const proOk = today.protein_g >= GOALS.protein_g;
 
   return (
     <div className="h-full flex flex-col gap-3 overflow-hidden">
       <div className="flex items-center gap-2 shrink-0">
-        <Flame size={12} className="text-orange-400 shrink-0" />
-        <span className="text-zinc-400 text-xs font-medium uppercase tracking-wider">7-Day Avg</span>
-        <span className="text-zinc-600 text-[10px]">{week.days_logged}/7 days</span>
+        <Flame size={11} style={{ color: '#F59E0B', flexShrink: 0 }} />
+        <span style={{
+          fontFamily: 'var(--font-mono)',
+          fontSize: '0.55rem',
+          letterSpacing: '0.16em',
+          textTransform: 'uppercase',
+          color: 'rgba(0,212,255,0.4)',
+        }}>
+          7-Day Avg · {week.days_logged}/7 days
+        </span>
       </div>
 
       <div className="grid grid-cols-2 gap-2 shrink-0">
-        <div className="bg-zinc-800/60 rounded-lg p-2.5">
-          <p className="text-zinc-500 text-[9px] uppercase tracking-wider mb-1">Avg Calories</p>
-          <p className="text-zinc-100 text-lg font-bold tabular-nums">{week.avg_calories.toLocaleString()}</p>
-          <p className={cn('text-[9px] tabular-nums', calDiff >= 0 ? 'text-rose-400' : 'text-emerald-400')}>
-            {calDiff >= 0 ? '+' : ''}{calDiff} today
-          </p>
-        </div>
-        <div className="bg-zinc-800/60 rounded-lg p-2.5">
-          <p className="text-zinc-500 text-[9px] uppercase tracking-wider mb-1">Avg Protein</p>
-          <p className="text-zinc-100 text-lg font-bold tabular-nums">{week.avg_protein_g}g</p>
-          <p className={cn('text-[9px]', proOk ? 'text-emerald-400' : 'text-zinc-600')}>
-            {proOk ? `Goal hit today` : `${GOALS.protein_g - today.protein_g}g short today`}
-          </p>
-        </div>
+        {[
+          { label: 'Avg Calories', value: week.avg_calories.toLocaleString(), sub: `${calDelta >= 0 ? '+' : ''}${calDelta} today`, subOk: Math.abs(calDelta) < 200 },
+          { label: 'Avg Protein',  value: `${week.avg_protein_g}g`,            sub: proOk ? 'Goal hit today' : `${GOALS.protein_g - today.protein_g}g short`, subOk: proOk },
+        ].map(({ label, value, sub, subOk }) => (
+          <div
+            key={label}
+            className="rounded-lg p-2.5"
+            style={{ background: 'rgba(0,212,255,0.04)', border: '1px solid rgba(0,212,255,0.08)' }}
+          >
+            <p style={{ fontFamily: 'var(--font-mono)', fontSize: '0.48rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(160,175,200,0.4)', marginBottom: '4px' }}>
+              {label}
+            </p>
+            <p style={{ fontFamily: 'var(--font-mono)', fontSize: '1.1rem', fontWeight: '700', color: '#fff', lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>
+              {value}
+            </p>
+            <p style={{ fontFamily: 'var(--font-mono)', fontSize: '0.5rem', color: subOk ? 'rgba(52,211,153,0.8)' : 'rgba(248,113,113,0.75)', marginTop: '3px' }}>
+              {sub}
+            </p>
+          </div>
+        ))}
       </div>
 
-      <div className="flex-1 space-y-1 overflow-hidden">
-        <p className="text-zinc-600 text-[9px] uppercase tracking-wider">Today vs goal</p>
+      <div className="flex-1 space-y-2.5 overflow-hidden">
+        <SectionLabel>Today vs Goal</SectionLabel>
         {[
-          { label: 'Calories', val: today.calories, goal: GOALS.calories, color: 'bg-orange-500', unit: '' },
-          { label: 'Protein',  val: today.protein_g, goal: GOALS.protein_g, color: 'bg-red-500',    unit: 'g' },
-        ].map(({ label, val, goal, color, unit }) => (
-          <div key={label}>
-            <div className="flex justify-between text-[9px] mb-0.5">
-              <span className="text-zinc-500">{label}</span>
-              <span className="text-zinc-500 tabular-nums">{val}{unit}/{goal}{unit}</span>
-            </div>
-            <div className="h-1 bg-zinc-800 rounded-full overflow-hidden">
-              <div className={cn('h-full rounded-full', color)} style={{ width: `${Math.min(100, (val/goal)*100)}%` }} />
-            </div>
-          </div>
+          { label: 'Calories', val: today.calories,  goal: GOALS.calories,   unit: '' },
+          { label: 'Protein',  val: today.protein_g, goal: GOALS.protein_g,  unit: 'g' },
+        ].map(({ label, val, goal, unit }) => (
+          <GlowBar key={label} value={val} goal={goal} label={label} valueLabel={`${val}${unit}/${goal}${unit}`} />
         ))}
       </div>
     </div>
   );
 }
 
+// ─── NutritionDemoWidget ─────────────────────────────────────────────────────
 
-// ─── NutritionDemoWidget ──────────────────────────────────────────────────────
-
-const DEMO = {
-  calories:    { val: 1840, goal: 2500, unit: 'kcal', color: 'bg-orange-500',  label: 'Calories'    },
-  protein_g:   { val: 142,  goal: 180,  unit: 'g',    color: 'bg-red-500',     label: 'Protein'     },
-  carbs_g:     { val: 198,  goal: 250,  unit: 'g',    color: 'bg-amber-500',   label: 'Carbs'       },
-  fat_g:       { val: 61,   goal: 80,   unit: 'g',    color: 'bg-yellow-500',  label: 'Fat'         },
-  fiber_g:     { val: 22,   goal: 30,   unit: 'g',    color: 'bg-lime-500',    label: 'Fiber'       },
-  sugar_g:     { val: 48,   goal: 50,   unit: 'g',    color: 'bg-pink-500',    label: 'Sugar'       },
-  sodium_mg:   { val: 1820, goal: 2300, unit: 'mg',   color: 'bg-cyan-500',    label: 'Sodium'      },
-};
-
-const MICROS = [
-  { label: 'Vitamin D', val: 14,  goal: 20,   unit: 'mcg', color: 'bg-yellow-400'  },
-  { label: 'Calcium',   val: 780, goal: 1000, unit: 'mg',  color: 'bg-blue-400'    },
-  { label: 'Iron',      val: 14,  goal: 18,   unit: 'mg',  color: 'bg-rose-400'    },
-  { label: 'Potassium', val: 2800,goal: 3500, unit: 'mg',  color: 'bg-violet-400'  },
-  { label: 'Vitamin C', val: 72,  goal: 90,   unit: 'mg',  color: 'bg-orange-400'  },
-  { label: 'Magnesium', val: 290, goal: 420,  unit: 'mg',  color: 'bg-teal-400'    },
-  { label: 'Zinc',      val: 9,   goal: 11,   unit: 'mg',  color: 'bg-indigo-400'  },
-  { label: 'Vitamin B12',val: 2.1,goal: 2.4,  unit: 'mcg', color: 'bg-emerald-400' },
+const DEMO_MACROS = [
+  { label: 'Calories', val: 1840, goal: 2500, unit: ''   },
+  { label: 'Protein',  val: 142,  goal: 180,  unit: 'g'  },
+  { label: 'Carbs',    val: 198,  goal: 250,  unit: 'g'  },
+  { label: 'Fat',      val: 61,   goal: 80,   unit: 'g'  },
+  { label: 'Fiber',    val: 22,   goal: 30,   unit: 'g'  },
+  { label: 'Sugar',    val: 48,   goal: 50,   unit: 'g'  },
+  { label: 'Sodium',   val: 1820, goal: 2300, unit: 'mg' },
 ];
 
-function MacroBar({ label, val, goal, unit, color }: { label: string; val: number; goal: number; unit: string; color: string }) {
-  const pct = Math.min(100, (val / goal) * 100);
-  const over = val > goal;
-  return (
-    <div>
-      <div className="flex items-center justify-between mb-0.5">
-        <span className="text-zinc-400 text-[10px]">{label}</span>
-        <span className={cn('text-[10px] tabular-nums', over ? 'text-rose-400' : 'text-zinc-500')}>
-          {val.toLocaleString()}/{goal.toLocaleString()}{unit}
-        </span>
-      </div>
-      <div className="h-1.5 bg-zinc-800 rounded-full overflow-hidden">
-        <div className={cn('h-full rounded-full transition-all', over ? 'bg-rose-500' : color)}
-          style={{ width: `${pct}%` }} />
-      </div>
-    </div>
-  );
-}
+const DEMO_MICROS = [
+  { label: 'Vitamin D',   val: 14,   goal: 20,   unit: 'mcg' },
+  { label: 'Calcium',     val: 780,  goal: 1000, unit: 'mg'  },
+  { label: 'Iron',        val: 14,   goal: 18,   unit: 'mg'  },
+  { label: 'Potassium',   val: 2800, goal: 3500, unit: 'mg'  },
+  { label: 'Vitamin C',   val: 72,   goal: 90,   unit: 'mg'  },
+  { label: 'Magnesium',   val: 290,  goal: 420,  unit: 'mg'  },
+  { label: 'Zinc',        val: 9,    goal: 11,   unit: 'mg'  },
+  { label: 'Vitamin B12', val: 2.1,  goal: 2.4,  unit: 'mcg' },
+];
 
 export function NutritionDemoWidget(_: WidgetProps) {
-  const calPct = Math.round((DEMO.calories.val / DEMO.calories.goal) * 100);
+  const cal = DEMO_MACROS[0];
 
   return (
     <div className="h-full flex flex-col gap-3 overflow-hidden">
-      {/* Demo badge + calorie summary */}
       <div className="flex items-center justify-between shrink-0">
         <div className="flex items-center gap-2">
-          <Flame size={12} className="text-orange-400" />
-          <span className="text-zinc-400 text-xs font-medium uppercase tracking-wider">Today — Demo</span>
+          <Flame size={11} style={{ color: '#F59E0B', flexShrink: 0 }} />
+          <span style={{
+            fontFamily: 'var(--font-mono)',
+            fontSize: '0.55rem',
+            letterSpacing: '0.16em',
+            textTransform: 'uppercase',
+            color: 'rgba(0,212,255,0.4)',
+          }}>
+            Today — Demo
+          </span>
         </div>
-        <span className="text-[9px] px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-500 border border-zinc-700">DEMO DATA</span>
+        <span style={{
+          fontFamily: 'var(--font-mono)',
+          fontSize: '0.48rem',
+          letterSpacing: '0.1em',
+          color: 'rgba(245,158,11,0.5)',
+          border: '1px solid rgba(245,158,11,0.2)',
+          borderRadius: '4px',
+          padding: '1px 6px',
+        }}>
+          DEMO
+        </span>
       </div>
 
-      {/* Calories hero */}
-      <div className="flex items-center gap-3 shrink-0 bg-zinc-800/40 rounded-xl p-3">
-        <div className="relative w-14 h-14">
-          <svg width="56" height="56" className="-rotate-90">
-            <circle cx="28" cy="28" r="22" fill="none" stroke="#27272a" strokeWidth="5" />
-            <circle cx="28" cy="28" r="22" fill="none" stroke="#f97316"
-              strokeWidth="5" strokeLinecap="round"
-              strokeDasharray={2 * Math.PI * 22}
-              strokeDashoffset={2 * Math.PI * 22 * (1 - calPct / 100)} />
-          </svg>
-          <span className="absolute inset-0 flex items-center justify-center text-[10px] font-bold text-zinc-300">{calPct}%</span>
-        </div>
-        <div>
-          <p className="text-zinc-100 text-2xl font-bold tabular-nums leading-none">{DEMO.calories.val.toLocaleString()}</p>
-          <p className="text-zinc-500 text-[10px] mt-0.5">of {DEMO.calories.goal.toLocaleString()} kcal goal</p>
-          <p className="text-zinc-600 text-[9px] mt-1">{DEMO.calories.goal - DEMO.calories.val} kcal remaining</p>
+      <div
+        className="flex items-center gap-3 shrink-0 rounded-xl p-3"
+        style={{ background: 'rgba(0,212,255,0.03)', border: '1px solid rgba(0,212,255,0.08)' }}
+      >
+        <GlowRing value={cal.val} goal={cal.goal} size={56} />
+        <div className="flex flex-col gap-1.5">
+          <Readout value={cal.val} unit="kcal" label="Today" />
+          <p style={{ fontFamily: 'var(--font-mono)', fontSize: '0.5rem', color: 'rgba(0,212,255,0.4)' }}>
+            {(cal.goal - cal.val).toLocaleString()} kcal remaining
+          </p>
         </div>
       </div>
 
-      {/* Macros */}
-      <div className="shrink-0">
-        <p className="text-zinc-600 text-[9px] uppercase tracking-wider mb-2">Macronutrients</p>
-        <div className="space-y-2">
-          {Object.entries(DEMO).slice(1).map(([k, m]) => (
-            <MacroBar key={k} {...m} />
-          ))}
-        </div>
+      <div className="shrink-0 space-y-2">
+        <SectionLabel>Macronutrients</SectionLabel>
+        {DEMO_MACROS.slice(1).map(({ label, val, goal, unit }) => (
+          <GlowBar key={label} value={val} goal={goal} label={label} valueLabel={`${val}${unit}/${goal}${unit}`} />
+        ))}
       </div>
 
-      {/* Micros */}
+      {/* Micronutrients — biological systems grid */}
       <div className="flex-1 overflow-y-auto min-h-0">
-        <p className="text-zinc-600 text-[9px] uppercase tracking-wider mb-2">Micronutrients</p>
-        <div className="space-y-2">
-          {MICROS.map((m) => (
-            <MacroBar key={m.label} {...m} />
+        <SectionLabel>Micronutrients</SectionLabel>
+        <div className="grid grid-cols-2 gap-x-4 gap-y-2.5">
+          {DEMO_MICROS.map(({ label, val, goal, unit }) => (
+            <GlowBar key={label} value={val} goal={goal} label={label} valueLabel={`${val}${unit}`} height={3} />
           ))}
         </div>
       </div>
