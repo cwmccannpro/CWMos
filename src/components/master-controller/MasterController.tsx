@@ -28,9 +28,7 @@ interface ISpeechRecognition extends EventTarget {
 }
 declare global {
   interface Window {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    SpeechRecognition: new () => ISpeechRecognition;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      SpeechRecognition: new () => ISpeechRecognition;
     webkitSpeechRecognition: new () => ISpeechRecognition;
   }
 }
@@ -59,6 +57,11 @@ export function MasterController({ open, onClose }: MasterControllerProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<ISpeechRecognition | null>(null);
 
+  const stopListening = useCallback(() => {
+    recognitionRef.current?.stop();
+    setListening(false);
+  }, []);
+
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
@@ -68,12 +71,7 @@ export function MasterController({ open, onClose }: MasterControllerProps) {
   // Stop listening when panel closes
   useEffect(() => {
     if (!open) stopListening();
-  }, [open]);
-
-  const stopListening = useCallback(() => {
-    recognitionRef.current?.stop();
-    setListening(false);
-  }, []);
+  }, [open, stopListening]);
 
   const startListening = useCallback(() => {
     const SR = window.SpeechRecognition ?? window.webkitSpeechRecognition;
