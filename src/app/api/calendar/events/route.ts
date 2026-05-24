@@ -195,15 +195,24 @@ export async function GET(req: Request) {
   const all: RawEvent[] = [];
 
   await Promise.allSettled(icalUrls.map(async (url, idx) => {
+    // webcal:// is identical to https:// — Node fetch doesn't understand the protocol
+    const fetchUrl = url.replace(/^webcal:\/\//i, 'https://');
     try {
-      const res = await fetch(url, {
-        headers: { 'User-Agent': 'CWMControlCenter/1.0', Accept: 'text/calendar' },
+      const res = await fetch(fetchUrl, {
+        headers: { 'User-Agent': 'CWMControlCenter/1.0 (calendar sync)', Accept: 'text/calendar, text/plain, */*' },
         cache: 'no-store',
+        redirect: 'follow',
       });
-      if (!res.ok) { console.error(`[cal] Feed ${idx} HTTP ${res.status}`); return; }
-      all.push(...parseIcs(await res.text(), String(idx), from, to));
+      if (!res.ok) { console.error(`[cal] Feed ${idx} HTTP ${res.status} — ${fetchUrl}`); return; }
+      const text = await res.text();
+      if (!text.includes('BEGIN:VCALENDAR')) {
+        console.error(`[cal] Feed ${idx} — response is not ICS (got ${text.slice(0, 80)})`);
+        return;
+      }
+      all.push(...parseIcs(text, String(idx), from, to));
     } catch (err) {
-      console.error(`[cal] Feed ${idx} error: ${err}`);
+      const cause = err instanceof Error ? (err as any).cause ?? err.message : String(err);
+      console.error(`[cal] Feed ${idx} fetch error — ${fetchUrl} — ${cause}`);
     }
   }));
 
