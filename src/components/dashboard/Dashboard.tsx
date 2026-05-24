@@ -23,33 +23,40 @@ function getDefaultLayout(): WidgetLayoutItem[] {
   }));
 }
 
-// Renames for widget IDs that changed across versions
 const ID_MIGRATIONS: Record<string, string> = {
   'trello-recent-cards': 'trello-list',
 };
 
-function loadLayout(): WidgetLayoutItem[] {
-  if (typeof window === 'undefined') return [];
-  try {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (!stored) return getDefaultLayout();
-    const parsed = JSON.parse(stored) as WidgetLayoutItem[];
-    return parsed.map((item) => ({
-      ...item,
-      config: item.config ?? {},
-      definitionId: ID_MIGRATIONS[item.definitionId] ?? item.definitionId,
-    }));
-  } catch {
-    return getDefaultLayout();
-  }
+function normalizeLayout(raw: WidgetLayoutItem[]): WidgetLayoutItem[] {
+  return raw.map((item) => ({
+    ...item,
+    config: item.config ?? {},
+    definitionId: ID_MIGRATIONS[item.definitionId] ?? item.definitionId,
+  }));
 }
 
-function saveLayout(items: WidgetLayoutItem[]) {
+function localLoad(): WidgetLayoutItem[] | null {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
-  } catch {
-    // ignore
-  }
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (!stored) return null;
+    return normalizeLayout(JSON.parse(stored) as WidgetLayoutItem[]);
+  } catch { return null; }
+}
+
+function localSave(items: WidgetLayoutItem[]) {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(items)); } catch { /* ignore */ }
+}
+
+let saveTimer: ReturnType<typeof setTimeout> | null = null;
+function cloudSave(items: WidgetLayoutItem[]) {
+  if (saveTimer) clearTimeout(saveTimer);
+  saveTimer = setTimeout(() => {
+    fetch('/api/dashboard-layout', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ layout: items }),
+    }).catch(() => { /* non-fatal */ });
+  }, 1500);
 }
 
 export function Dashboard() {
@@ -58,32 +65,55 @@ export function Dashboard() {
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    setItems(loadLayout());
+    // Show localStorage immediately, then sync from cloud
+    const local = localLoad();
+    if (local) setItems(local);
     setMounted(true);
+
+    fetch('/api/dashboard-layout')
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (data?.layout && Array.isArray(data.layout) && data.layout.length > 0) {
+          const normalized = normalizeLayout(data.layout as WidgetLayoutItem[]);
+          setItems(normalized);
+          localSave(normalized);
+        } else if (!local) {
+          const def = getDefaultLayout();
+          setItems(def);
+          localSave(def);
+          cloudSave(def);
+        }
+      })
+      .catch(() => { if (!local) setItems(getDefaultLayout()); });
+  }, []);
+
+  const persist = useCallback((items: WidgetLayoutItem[]) => {
+    localSave(items);
+    cloudSave(items);
   }, []);
 
   const handleLayoutChange = useCallback((updated: WidgetLayoutItem[]) => {
     setItems(updated);
-    saveLayout(updated);
-  }, []);
+    persist(updated);
+  }, [persist]);
 
   const handleRemoveWidget = useCallback((instanceId: string) => {
     setItems((prev) => {
       const next = prev.filter((item) => item.instanceId !== instanceId);
-      saveLayout(next);
+      persist(next);
       return next;
     });
-  }, []);
+  }, [persist]);
 
   const handleConfigChange = useCallback((instanceId: string, config: Record<string, unknown>) => {
     setItems((prev) => {
       const next = prev.map((item) =>
         item.instanceId === instanceId ? { ...item, config } : item
       );
-      saveLayout(next);
+      persist(next);
       return next;
     });
-  }, []);
+  }, [persist]);
 
   const handleAddWidget = useCallback((def: WidgetDefinition) => {
     const newItem: WidgetLayoutItem = {
@@ -98,11 +128,11 @@ export function Dashboard() {
     };
     setItems((prev) => {
       const next = [...prev, newItem];
-      saveLayout(next);
+      persist(next);
       return next;
     });
     setAddMenuOpen(false);
-  }, []);
+  }, [persist]);
 
   const availableWidgets = registry.getAllWidgets();
 

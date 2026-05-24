@@ -5,13 +5,13 @@ import { AppShell } from '@/components/layout/AppShell';
 
 const inter = Inter({ subsets: ['latin'] });
 
-export const cinzel = Cinzel({
+const cinzel = Cinzel({
   subsets: ['latin'],
   weight: ['400', '700', '900'],
   variable: '--font-cinzel',
 });
 
-export const mono = IBM_Plex_Mono({
+const mono = IBM_Plex_Mono({
   subsets: ['latin'],
   weight: ['400', '500', '700'],
   variable: '--font-mono',
