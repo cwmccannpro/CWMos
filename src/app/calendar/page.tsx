@@ -24,13 +24,15 @@ function getWeekSunday(date: Date): Date {
 
 const CURRENT_YEAR = new Date().getFullYear();
 
-async function fetchEvents(from: Date, to: Date): Promise<CalendarEvent[]> {
+// Returns null when no iCal credentials are configured (503), [] when configured but no events
+async function fetchEvents(from: Date, to: Date): Promise<CalendarEvent[] | null> {
   const res = await fetch(`/api/calendar/events?from=${from.toISOString()}&to=${to.toISOString()}`);
+  if (res.status === 503) return null;
   if (!res.ok) return [];
   const raw: any[] = await res.json();
   return raw
     .map(e => ({ ...e, start: new Date(e.start), end: new Date(e.end) }))
-    .filter(e => e.start.getUTCFullYear() >= CURRENT_YEAR); // ignore pre-2026 events
+    .filter(e => e.start.getUTCFullYear() >= CURRENT_YEAR);
 }
 
 export default function CalendarPage() {
@@ -38,6 +40,7 @@ export default function CalendarPage() {
   const [viewDate, setViewDate] = useState(new Date());
   const [viewMode, setViewMode] = useState<ViewMode>('week');
   const [events, setEvents] = useState<CalendarEvent[]>([]);
+  const [notConfigured, setNotConfigured] = useState(false);
   const [hiddenCals, setHiddenCals] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [selectedDay, setSelectedDay] = useState<Date | null>(null);
@@ -57,11 +60,16 @@ export default function CalendarPage() {
     }
 
     setLoading(true);
-    fetchEvents(from, to).then(setEvents).finally(() => setLoading(false));
+    fetchEvents(from, to).then(result => {
+      if (result === null) { setNotConfigured(true); setEvents([]); }
+      else { setNotConfigured(false); setEvents(result); }
+    }).finally(() => setLoading(false));
 
-    // Re-sync every 5 minutes so new iCloud events appear automatically
     const interval = setInterval(() => {
-      fetchEvents(from, to).then(setEvents);
+      fetchEvents(from, to).then(result => {
+        if (result === null) { setNotConfigured(true); setEvents([]); }
+        else { setNotConfigured(false); setEvents(result); }
+      });
     }, 5 * 60 * 1000);
 
     return () => clearInterval(interval);
@@ -187,6 +195,18 @@ export default function CalendarPage() {
             ))}
           </div>
         </div>
+
+        {/* Not-configured banner */}
+        {notConfigured && (
+          <div className="shrink-0 px-4 py-2.5 flex items-center gap-3" style={{ background: 'rgba(0,212,255,0.04)', borderBottom: '1px solid rgba(0,212,255,0.1)' }}>
+            <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.6rem', letterSpacing: '0.08em', color: 'rgba(0,212,255,0.6)' }}>
+              No calendars connected.
+            </span>
+            <a href="/settings" style={{ fontFamily: 'var(--font-mono)', fontSize: '0.6rem', letterSpacing: '0.08em', color: '#00D4FF', textDecoration: 'underline', textUnderlineOffset: '3px' }}>
+              Add iCal URL in Settings →
+            </a>
+          </div>
+        )}
 
         {/* Content */}
         <div className="flex flex-1 min-h-0 overflow-hidden">

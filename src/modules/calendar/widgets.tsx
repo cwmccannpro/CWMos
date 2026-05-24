@@ -11,8 +11,10 @@ import type { WidgetProps } from '@/types';
 
 const CURRENT_YEAR = new Date().getFullYear();
 
-async function fetchRange(from: Date, to: Date): Promise<CalendarEvent[]> {
+// Returns null when no iCal credentials are configured (503), [] when configured but no events
+async function fetchRange(from: Date, to: Date): Promise<CalendarEvent[] | null> {
   const res = await fetch(`/api/calendar/events?from=${from.toISOString()}&to=${to.toISOString()}`);
+  if (res.status === 503) return null;
   if (!res.ok) return [];
   const raw: any[] = await res.json();
   return raw
@@ -32,19 +34,22 @@ function fmtTime(d: Date) {
 export function CalendarUpcomingWidget({ widgetInstanceId }: WidgetProps) {
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [loading, setLoading] = useState(true);
+  const [notConfigured, setNotConfigured] = useState(false);
 
   useEffect(() => {
     const now = new Date();
     const from = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
     const to   = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59));
 
-    fetchRange(from, to)
-      .then((data) => setEvents(data.sort((a, b) => a.start.getTime() - b.start.getTime())))
-      .finally(() => setLoading(false));
+    fetchRange(from, to).then((data) => {
+      if (data === null) { setNotConfigured(true); }
+      else { setNotConfigured(false); setEvents(data.sort((a, b) => a.start.getTime() - b.start.getTime())); }
+    }).finally(() => setLoading(false));
 
     const interval = setInterval(async () => {
       const data = await fetchRange(from, to);
-      setEvents(data.sort((a, b) => a.start.getTime() - b.start.getTime()));
+      if (data === null) setNotConfigured(true);
+      else { setNotConfigured(false); setEvents(data.sort((a, b) => a.start.getTime() - b.start.getTime())); }
     }, 5 * 60 * 1000);
     return () => clearInterval(interval);
   }, [widgetInstanceId]);
@@ -78,6 +83,10 @@ export function CalendarUpcomingWidget({ widgetInstanceId }: WidgetProps) {
             <div key={i} className="h-6 rounded animate-pulse" style={{ background: 'rgba(0,212,255,0.04)' }} />
           ))}
         </div>
+      ) : notConfigured ? (
+        <a href="/settings" style={{ fontFamily: 'var(--font-mono)', fontSize: '0.58rem', color: '#00D4FF', textDecoration: 'underline', textUnderlineOffset: '3px', opacity: 0.7 }}>
+          No calendars connected → Settings
+        </a>
       ) : events.length === 0 ? (
         <p style={{ fontFamily: 'var(--font-mono)', fontSize: '0.58rem', color: 'rgba(160,175,200,0.3)' }}>
           Nothing scheduled today
@@ -119,18 +128,21 @@ export function CalendarUpcomingWidget({ widgetInstanceId }: WidgetProps) {
 export function CalendarDayWidget({ widgetInstanceId }: WidgetProps) {
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [loading, setLoading] = useState(true);
+  const [notConfigured, setNotConfigured] = useState(false);
 
   useEffect(() => {
     const now = new Date();
     const from = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
     const to   = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59));
-    fetchRange(from, to)
-      .then((data) => setEvents(data.sort((a, b) => a.start.getTime() - b.start.getTime())))
-      .finally(() => setLoading(false));
+    fetchRange(from, to).then((data) => {
+      if (data === null) setNotConfigured(true);
+      else { setNotConfigured(false); setEvents(data.sort((a, b) => a.start.getTime() - b.start.getTime())); }
+    }).finally(() => setLoading(false));
 
     const interval = setInterval(async () => {
       const data = await fetchRange(from, to);
-      setEvents(data.sort((a, b) => a.start.getTime() - b.start.getTime()));
+      if (data === null) setNotConfigured(true);
+      else { setNotConfigured(false); setEvents(data.sort((a, b) => a.start.getTime() - b.start.getTime())); }
     }, 5 * 60 * 1000);
     return () => clearInterval(interval);
   }, [widgetInstanceId]);
@@ -151,8 +163,14 @@ export function CalendarDayWidget({ widgetInstanceId }: WidgetProps) {
         <div className="space-y-1.5">
           {[1, 2, 3].map((i) => <div key={i} className="h-7 bg-zinc-800 rounded animate-pulse" />)}
         </div>
+      ) : notConfigured ? (
+        <a href="/settings" style={{ fontFamily: 'var(--font-mono)', fontSize: '0.58rem', color: '#00D4FF', textDecoration: 'underline', textUnderlineOffset: '3px', opacity: 0.7 }}>
+          No calendars connected → Settings
+        </a>
       ) : events.length === 0 ? (
-        <p className="text-zinc-600 text-xs">Nothing scheduled today</p>
+        <p style={{ fontFamily: 'var(--font-mono)', fontSize: '0.58rem', color: 'rgba(160,175,200,0.3)' }}>
+          Nothing scheduled today
+        </p>
       ) : (
         <ul className="space-y-1 overflow-y-auto flex-1">
           {events.map((e, i) => {
@@ -234,6 +252,7 @@ function fmtHour(h: number) {
 export function CalendarWeekWidget({ widgetInstanceId }: WidgetProps) {
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [loading, setLoading] = useState(true);
+  const [notConfigured, setNotConfigured] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const now = new Date();
@@ -248,9 +267,15 @@ export function CalendarWeekWidget({ widgetInstanceId }: WidgetProps) {
     const to = new Date(weekStart.getTime() + 7 * 86_400_000 - 1);
 
     setLoading(true);
-    fetchRange(from, to).then(setEvents).finally(() => setLoading(false));
+    fetchRange(from, to).then(data => {
+      if (data === null) setNotConfigured(true);
+      else { setNotConfigured(false); setEvents(data); }
+    }).finally(() => setLoading(false));
 
-    const interval = setInterval(() => fetchRange(from, to).then(setEvents), 5 * 60 * 1000);
+    const interval = setInterval(() => fetchRange(from, to).then(data => {
+      if (data === null) setNotConfigured(true);
+      else { setNotConfigured(false); setEvents(data); }
+    }), 5 * 60 * 1000);
     return () => clearInterval(interval);
   }, [widgetInstanceId, weekStart]);
 
@@ -277,7 +302,17 @@ export function CalendarWeekWidget({ widgetInstanceId }: WidgetProps) {
   if (loading) {
     return (
       <div className="h-full flex items-center justify-center">
-        <div className="text-zinc-600 text-xs">Loading…</div>
+        <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.55rem', color: 'rgba(0,212,255,0.3)', letterSpacing: '0.12em' }}>LOADING…</div>
+      </div>
+    );
+  }
+
+  if (notConfigured) {
+    return (
+      <div className="h-full flex items-center justify-center">
+        <a href="/settings" style={{ fontFamily: 'var(--font-mono)', fontSize: '0.6rem', color: '#00D4FF', textDecoration: 'underline', textUnderlineOffset: '3px', opacity: 0.7 }}>
+          No calendars connected → Settings
+        </a>
       </div>
     );
   }
