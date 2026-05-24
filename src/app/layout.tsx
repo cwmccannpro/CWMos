@@ -20,6 +20,11 @@ const mono = IBM_Plex_Mono({
 export const metadata: Metadata = {
   title: 'CTRLpanel',
   description: 'Your personal command center',
+  icons: {
+    icon: '/favicon.png',
+    shortcut: '/favicon.png',
+    apple: '/favicon.png',
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
