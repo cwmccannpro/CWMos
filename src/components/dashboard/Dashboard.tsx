@@ -74,10 +74,15 @@ export function Dashboard() {
       .then(r => r.ok ? r.json() : null)
       .then(data => {
         if (data?.layout && Array.isArray(data.layout) && data.layout.length > 0) {
+          // Cloud has a saved layout — it's the source of truth
           const normalized = normalizeLayout(data.layout as WidgetLayoutItem[]);
           setItems(normalized);
           localSave(normalized);
-        } else if (!local) {
+        } else if (local && local.length > 0) {
+          // Cloud is empty but localStorage has a layout — push it up
+          cloudSave(local);
+        } else {
+          // Nothing anywhere — generate defaults and save everywhere
           const def = getDefaultLayout();
           setItems(def);
           localSave(def);
