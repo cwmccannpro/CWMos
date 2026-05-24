@@ -50,34 +50,74 @@ export default function AuthPage() {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-zinc-950">
+    <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: '#080B10' }}>
       {/* Background grid */}
-      <div className="absolute inset-0 bg-[linear-gradient(to_right,#18181b_1px,transparent_1px),linear-gradient(to_bottom,#18181b_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_110%)]" />
+      <div className="absolute inset-0 bg-[linear-gradient(to_right,rgba(0,212,255,0.03)_1px,transparent_1px),linear-gradient(to_bottom,rgba(0,212,255,0.03)_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_110%)]" />
+      {/* Radial navy glow */}
+      <div className="absolute inset-0" style={{ background: 'radial-gradient(ellipse 70% 50% at 50% 30%, rgba(0,25,55,0.5) 0%, transparent 70%)' }} />
 
       <div className="relative w-full max-w-sm mx-4">
         {/* Logo */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-blue-600 mb-4">
-            <span className="text-white font-bold text-lg">C</span>
-          </div>
-          <h1 className="text-zinc-100 text-2xl font-semibold tracking-tight">CWM Control Center</h1>
-          <p className="text-zinc-500 text-sm mt-1">Your personal command center</p>
+          <p className="leading-none mb-1" style={{ fontFamily: 'var(--font-cinzel)' }}>
+            <span
+              className="font-black uppercase"
+              style={{
+                fontSize: '1.6rem',
+                letterSpacing: '0.28em',
+                color: '#ffffff',
+                textShadow: '0 0 32px rgba(0,212,255,0.5), 0 0 12px rgba(0,212,255,0.25)',
+              }}
+            >CTRL</span>
+            <span
+              className="font-normal uppercase"
+              style={{
+                fontSize: '1.6rem',
+                letterSpacing: '0.2em',
+                color: 'rgba(0,212,255,0.5)',
+              }}
+            >panel</span>
+          </p>
+          <a
+            href="https://cwmccann.pro"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="uppercase transition-all duration-200"
+            style={{
+              fontFamily: 'var(--font-cinzel)',
+              fontSize: '0.52rem',
+              letterSpacing: '0.28em',
+              color: 'rgba(0,212,255,0.25)',
+              textDecoration: 'none',
+            }}
+            onMouseEnter={e => (e.currentTarget.style.color = 'rgba(0,212,255,0.6)')}
+            onMouseLeave={e => (e.currentTarget.style.color = 'rgba(0,212,255,0.25)')}
+          >
+            by cwmccann.pro
+          </a>
         </div>
 
         {/* Card */}
-        <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 shadow-2xl">
+        <div className="rounded-2xl p-6 shadow-2xl" style={{ background: 'rgba(8,12,20,0.92)', border: '1px solid rgba(0,212,255,0.1)', backdropFilter: 'blur(20px)' }}>
           {/* Mode toggle */}
-          <div className="flex bg-zinc-800 rounded-lg p-1 mb-6">
+          <div className="flex rounded-lg p-1 mb-6" style={{ background: 'rgba(0,0,0,0.4)', border: '1px solid rgba(0,212,255,0.08)' }}>
             {(['login', 'register'] as Mode[]).map((m) => (
               <button
                 key={m}
                 onClick={() => { setMode(m); setError(''); setSuccess(''); }}
                 className={cn(
-                  'flex-1 py-1.5 text-sm font-medium rounded-md transition-all capitalize',
-                  mode === m
-                    ? 'bg-zinc-700 text-zinc-100 shadow-sm'
-                    : 'text-zinc-500 hover:text-zinc-300'
+                  'flex-1 py-1.5 text-xs font-medium rounded-md transition-all uppercase tracking-widest',
                 )}
+                style={mode === m ? {
+                  fontFamily: 'var(--font-mono)',
+                  background: 'rgba(0,212,255,0.08)',
+                  color: 'rgba(0,212,255,0.9)',
+                  border: '1px solid rgba(0,212,255,0.2)',
+                } : {
+                  fontFamily: 'var(--font-mono)',
+                  color: 'rgba(160,175,200,0.35)',
+                  border: '1px solid transparent',
+                }}
               >
                 {m === 'login' ? 'Sign In' : 'Register'}
               </button>
@@ -87,7 +127,7 @@ export default function AuthPage() {
           <form onSubmit={handleSubmit} className="space-y-4">
             {/* Email */}
             <div>
-              <label className="block text-zinc-400 text-xs font-medium mb-1.5">Email</label>
+              <label className="block text-xs font-medium mb-1.5 uppercase tracking-widest" style={{ fontFamily: 'var(--font-mono)', fontSize: '0.5rem', color: 'rgba(160,175,200,0.4)', letterSpacing: '0.16em' }}>Email</label>
               <input
                 type="email"
                 required
@@ -95,13 +135,13 @@ export default function AuthPage() {
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="you@example.com"
                 autoComplete="email"
-                className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2.5 text-sm text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/30 transition-colors"
+                className="w-full rounded-lg px-3 py-2.5 text-sm text-zinc-200 placeholder-zinc-600 focus:outline-none transition-colors" style={{ background: 'rgba(0,0,0,0.45)', border: '1px solid rgba(0,212,255,0.12)', fontFamily: 'var(--font-mono)', fontSize: '0.75rem' }}
               />
             </div>
 
             {/* Password */}
             <div>
-              <label className="block text-zinc-400 text-xs font-medium mb-1.5">Password</label>
+              <label className="block text-xs font-medium mb-1.5 uppercase tracking-widest" style={{ fontFamily: 'var(--font-mono)', fontSize: '0.5rem', color: 'rgba(160,175,200,0.4)', letterSpacing: '0.16em' }}>Password</label>
               <div className="relative">
                 <input
                   type={showPassword ? 'text' : 'password'}
@@ -111,7 +151,7 @@ export default function AuthPage() {
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
                   autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
-                  className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2.5 pr-10 text-sm text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/30 transition-colors"
+                  className="w-full rounded-lg px-3 py-2.5 pr-10 text-sm text-zinc-200 placeholder-zinc-600 focus:outline-none transition-colors" style={{ background: 'rgba(0,0,0,0.45)', border: '1px solid rgba(0,212,255,0.12)', fontFamily: 'var(--font-mono)', fontSize: '0.75rem' }}
                 />
                 <button
                   type="button"
@@ -142,7 +182,8 @@ export default function AuthPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors mt-2"
+              className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all mt-2 uppercase tracking-widest"
+              style={{ fontFamily: 'var(--font-mono)', fontSize: '0.65rem', background: 'rgba(0,212,255,0.1)', border: '1px solid rgba(0,212,255,0.25)', color: 'rgba(0,212,255,0.9)' }}
             >
               {loading && <Loader2 size={14} className="animate-spin" />}
               {mode === 'login' ? 'Sign In' : 'Create Account'}
@@ -150,8 +191,8 @@ export default function AuthPage() {
           </form>
         </div>
 
-        <p className="text-center text-zinc-700 text-xs mt-6">
-          CWM Control Center — Private Access
+        <p className="text-center text-xs mt-6 uppercase" style={{ fontFamily: 'var(--font-mono)', fontSize: '0.5rem', letterSpacing: '0.2em', color: 'rgba(0,212,255,0.15)' }}>
+          CTRLpanel — Private Access
         </p>
       </div>
     </div>
