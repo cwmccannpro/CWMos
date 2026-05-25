@@ -23,8 +23,8 @@ export async function GET(req: NextRequest) {
     const todayStart = new Date(localMidnightUTC.getTime() + tzOffset * 60000).toISOString();
     const todayEnd   = new Date(localMidnightUTC.getTime() + tzOffset * 60000 + 86400000 - 1).toISOString();
 
-    // 7 days ago
-    const sevenDaysAgo = new Date(now.getTime() - 7 * 86_400_000).toISOString();
+    // 7 days ago (from the start of the client's today)
+    const sevenDaysAgo = new Date(localMidnightUTC.getTime() + tzOffset * 60000 - 7 * 86_400_000).toISOString();
 
     // Today's logs
     const { data: todayLogs, error: todayErr } = await supabase
