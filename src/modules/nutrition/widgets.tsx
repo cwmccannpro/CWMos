@@ -123,15 +123,15 @@ export function NutritionTodayWidget({ widgetInstanceId }: WidgetProps) {
   const [error, setError] = useState(false);
 
   useEffect(() => {
-    fetch('/api/nutrition/summary')
-      .then(r => r.json())
-      .then(d => { if (!d.error) setToday(d.today); else setError(true); })
-      .catch(() => setError(true))
-      .finally(() => setLoading(false));
-
-    const iv = setInterval(() => {
-      fetch('/api/nutrition/summary').then(r => r.json()).then(d => { if (!d.error) setToday(d.today); });
-    }, 5 * 60 * 1000);
+    const now = new Date();
+    const params = new URLSearchParams({
+      date: now.toLocaleDateString('sv'),
+      tz: String(now.getTimezoneOffset()),
+    });
+    const url = `/api/nutrition/summary?${params}`;
+    const load = () => fetch(url).then(r => r.json()).then(d => { if (!d.error) setToday(d.today); else setError(true); }).catch(() => setError(true));
+    load().finally(() => setLoading(false));
+    const iv = setInterval(load, 2 * 60 * 1000);
     return () => clearInterval(iv);
   }, [widgetInstanceId]);
 
@@ -201,7 +201,9 @@ export function NutritionWeekWidget({ widgetInstanceId }: WidgetProps) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch('/api/nutrition/summary')
+    const now = new Date();
+    const params = new URLSearchParams({ date: now.toLocaleDateString('sv'), tz: String(now.getTimezoneOffset()) });
+    fetch(`/api/nutrition/summary?${params}`)
       .then(r => r.json())
       .then(d => { if (!d.error) { setWeek(d.week); setToday(d.today); } })
       .finally(() => setLoading(false));

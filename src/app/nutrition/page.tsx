@@ -97,11 +97,19 @@ export default function NutritionPage() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch('/api/nutrition/summary')
-      .then((r) => r.json())
-      .then((d) => { if (d.error) setError(d.error); else setSummary(d); })
-      .catch(() => setError('Failed to load nutrition data'))
-      .finally(() => setLoading(false));
+    const now = new Date();
+    const params = new URLSearchParams({ date: now.toLocaleDateString('sv'), tz: String(now.getTimezoneOffset()) });
+    const url = `/api/nutrition/summary?${params}`;
+
+    const load = () =>
+      fetch(url)
+        .then((r) => r.json())
+        .then((d) => { if (d.error) setError(d.error); else setSummary(d); })
+        .catch(() => setError('Failed to load nutrition data'));
+
+    load().finally(() => setLoading(false));
+    const iv = setInterval(load, 2 * 60 * 1000);
+    return () => clearInterval(iv);
   }, []);
 
   if (loading) {

@@ -1,7 +1,9 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { createAuthClient } from '@/lib/supabase/server';
 
-export async function GET() {
+export const dynamic = 'force-dynamic';
+
+export async function GET(req: NextRequest) {
   try {
     const supabase = await createAuthClient();
 
@@ -10,11 +12,16 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const now = new Date();
+    const { searchParams } = new URL(req.url);
+    // Client sends its local YYYY-MM-DD and getTimezoneOffset() (minutes ahead of UTC)
+    const clientDate = searchParams.get('date');
+    const tzOffset = parseInt(searchParams.get('tz') ?? '0', 10); // minutes (positive = behind UTC, e.g. EST=300)
 
-    // Today's bounds (local midnight → end of day in UTC)
-    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
-    const todayEnd   = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59).toISOString();
+    // Compute UTC bounds for the client's local calendar day
+    const dateStr = clientDate ?? new Date().toISOString().slice(0, 10);
+    const localMidnightUTC = new Date(`${dateStr}T00:00:00Z`);
+    const todayStart = new Date(localMidnightUTC.getTime() + tzOffset * 60000).toISOString();
+    const todayEnd   = new Date(localMidnightUTC.getTime() + tzOffset * 60000 + 86400000 - 1).toISOString();
 
     // 7 days ago
     const sevenDaysAgo = new Date(now.getTime() - 7 * 86_400_000).toISOString();
