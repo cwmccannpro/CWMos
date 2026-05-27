@@ -111,7 +111,9 @@ export type Permission =
   | 'viridian-systems:read'
   | 'content-factory:read'
   | 'habit-tracker:read'
-  | 'habit-tracker:write';
+  | 'habit-tracker:write'
+  | 'finance:read'
+  | 'finance:write';
 
 // ─── Module Contract ─────────────────────────────────────────────────────────
 

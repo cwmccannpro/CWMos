@@ -1,15 +1,39 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createAuthClient } from '@/lib/supabase/server';
+import { createAuthClient, createServerClient } from '@/lib/supabase/server';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(req: NextRequest) {
   try {
-    const supabase = await createAuthClient();
+    let userId: string;
+    let queryClient: Awaited<ReturnType<typeof createServerClient>>;
 
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    // Bearer token path (for desktop/API clients — uses same API key as nutrition log endpoint)
+    const authHeader = req.headers.get('Authorization') ?? '';
+    if (authHeader.startsWith('Bearer ')) {
+      const bearerKey = authHeader.slice(7);
+      const supabase = await createServerClient();
+      const { data: integration } = await supabase
+        .from('user_integrations')
+        .select('user_id')
+        .eq('provider', 'nutrition-chatgpt')
+        .eq('enabled', true)
+        .filter('credentials->>api_key', 'eq', bearerKey)
+        .single();
+      if (!integration) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      }
+      userId = integration.user_id;
+      queryClient = supabase;
+    } else {
+      // Cookie/session path (existing web app behavior)
+      const supabase = await createAuthClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      }
+      userId = user.id;
+      queryClient = supabase as Awaited<ReturnType<typeof createServerClient>>;
     }
 
     const { searchParams } = new URL(req.url);
@@ -27,10 +51,10 @@ export async function GET(req: NextRequest) {
     const sevenDaysAgo = new Date(localMidnightUTC.getTime() + tzOffset * 60000 - 7 * 86_400_000).toISOString();
 
     // Today's logs
-    const { data: todayLogs, error: todayErr } = await supabase
+    const { data: todayLogs, error: todayErr } = await queryClient
       .from('nutrition_logs')
       .select('meal_type, total_calories, protein_g, carbs_g, fat_g, logged_at, description')
-      .eq('user_id', user.id)
+      .eq('user_id', userId)
       .gte('logged_at', todayStart)
       .lte('logged_at', todayEnd)
       .order('logged_at', { ascending: false });
@@ -38,23 +62,23 @@ export async function GET(req: NextRequest) {
     if (todayErr) throw todayErr;
 
     // Last 7 days of logs (for averages)
-    const { data: weekLogs, error: weekErr } = await supabase
+    const { data: weekLogs, error: weekErr } = await queryClient
       .from('nutrition_logs')
       .select('logged_at, total_calories, protein_g, carbs_g, fat_g')
-      .eq('user_id', user.id)
+      .eq('user_id', userId)
       .gte('logged_at', sevenDaysAgo)
       .order('logged_at', { ascending: false });
 
     if (weekErr) throw weekErr;
 
     // Recent meals (last 20, with items)
-    const { data: recentLogs, error: recentErr } = await supabase
+    const { data: recentLogs, error: recentErr } = await queryClient
       .from('nutrition_logs')
       .select(`
         id, logged_at, meal_type, description, total_calories, protein_g, carbs_g, fat_g, source,
         nutrition_log_items ( name, quantity, calories )
       `)
-      .eq('user_id', user.id)
+      .eq('user_id', userId)
       .order('logged_at', { ascending: false })
       .limit(20);
 

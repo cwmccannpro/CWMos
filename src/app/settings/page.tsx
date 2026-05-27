@@ -3,9 +3,10 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
   CheckCircle2, XCircle, ChevronDown, ChevronUp,
-  Loader2, ExternalLink, Save, Settings2, Copy, RefreshCw,
+  Loader2, ExternalLink, Save, Settings2, Copy, RefreshCw, Palette, RotateCcw,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { DEFAULT_THEME, applyTheme, type ThemeConfig } from '@/components/providers/ThemeProvider';
 
 interface StoredIntegration {
   provider: string;
@@ -251,6 +252,88 @@ function NutritionSyncCard({ existing, onSaved }: { existing: StoredIntegration 
   );
 }
 
+// ── Theme ─────────────────────────────────────────────────────────────────────
+
+function ThemeCard({ existing }: { existing: StoredIntegration | null }) {
+  const stored = (existing?.credentials ?? {}) as Partial<ThemeConfig>;
+  const [theme, setTheme] = useState<ThemeConfig>({ ...DEFAULT_THEME, ...stored });
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  function update(key: keyof ThemeConfig, value: string) {
+    const next = { ...theme, [key]: value };
+    setTheme(next);
+    applyTheme(next);
+  }
+
+  function reset() {
+    setTheme(DEFAULT_THEME);
+    applyTheme(DEFAULT_THEME);
+  }
+
+  async function save() {
+    setSaving(true);
+    const res = await fetch('/api/integrations', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ provider: 'theme', credentials: theme, enabled: true }),
+    });
+    setSaving(false);
+    if (res.ok) { setSaved(true); setTimeout(() => setSaved(false), 2500); }
+  }
+
+  const SWATCHES: { key: keyof ThemeConfig; label: string }[] = [
+    { key: 'cyan',      label: 'Accent (Cyan)' },
+    { key: 'violet',    label: 'Secondary (Violet)' },
+    { key: 'gold',      label: 'Highlight (Gold)' },
+    { key: 'bg',        label: 'Background' },
+  ];
+
+  return (
+    <div className="bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden">
+      <div className="flex items-center gap-4 px-5 py-4 border-b border-zinc-800">
+        <Palette size={18} className="text-zinc-400" />
+        <div className="flex-1">
+          <p className="text-zinc-100 text-sm font-medium">Theme Customization</p>
+          <p className="text-zinc-500 text-xs mt-0.5">Adjust colors — changes apply live</p>
+        </div>
+        <button onClick={reset} className="flex items-center gap-1.5 text-zinc-600 hover:text-zinc-300 text-xs transition-colors" title="Reset to defaults">
+          <RotateCcw size={11} /> Reset
+        </button>
+      </div>
+      <div className="px-5 pb-5 pt-4 space-y-4">
+        <div className="grid grid-cols-2 gap-4">
+          {SWATCHES.map(({ key, label }) => (
+            <div key={key}>
+              <label className="block text-zinc-400 text-xs font-medium mb-1.5">{label}</label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="color"
+                  value={theme[key]}
+                  onChange={e => update(key, e.target.value)}
+                  className="w-8 h-8 rounded cursor-pointer border-0 bg-transparent"
+                />
+                <span className="text-zinc-500 text-xs font-mono">{theme[key]}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+        <div className="flex items-center justify-between pt-2">
+          {saved && <p className="text-emerald-400 text-xs">Saved</p>}
+          <button
+            onClick={save}
+            disabled={saving}
+            className="ml-auto flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-blue-600 text-white hover:bg-blue-500 disabled:opacity-40 transition-colors"
+          >
+            {saving ? <Loader2 size={13} className="animate-spin" /> : <Save size={13} />}
+            Save Theme
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Shared UI helpers ─────────────────────────────────────────────────────────
 
 function IntegrationCard({
@@ -388,19 +471,30 @@ export default function SettingsPage() {
         <h1 className="text-zinc-100 text-xl font-semibold">Settings</h1>
       </div>
 
-      <section>
-        <h2 className="text-zinc-400 text-xs font-semibold uppercase tracking-wider mb-4">Integrations</h2>
-        {loading ? (
-          <div className="flex items-center gap-2 text-zinc-500 text-sm">
-            <Loader2 size={14} className="animate-spin" /> Loading…
-          </div>
-        ) : (
-          <div className="space-y-3">
-            <NutritionSyncCard existing={get('nutrition-chatgpt')} onSaved={load} />
-            <TrelloCard existing={get('trello')} />
-            <ICalCard existing={get('ical')} />
-          </div>
-        )}
+      <section className="space-y-6">
+        <div>
+          <h2 className="text-zinc-400 text-xs font-semibold uppercase tracking-wider mb-4">Appearance</h2>
+          {loading ? (
+            <div className="flex items-center gap-2 text-zinc-500 text-sm"><Loader2 size={14} className="animate-spin" /> Loading…</div>
+          ) : (
+            <ThemeCard existing={get('theme')} />
+          )}
+        </div>
+
+        <div>
+          <h2 className="text-zinc-400 text-xs font-semibold uppercase tracking-wider mb-4">Integrations</h2>
+          {loading ? (
+            <div className="flex items-center gap-2 text-zinc-500 text-sm">
+              <Loader2 size={14} className="animate-spin" /> Loading…
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <NutritionSyncCard existing={get('nutrition-chatgpt')} onSaved={load} />
+              <TrelloCard existing={get('trello')} />
+              <ICalCard existing={get('ical')} />
+            </div>
+          )}
+        </div>
       </section>
 
       <p className="text-zinc-700 text-xs mt-8">

@@ -4,9 +4,11 @@
 
 @layer base {
   :root {
-    --cyan:   #00D4FF;
-    --violet: #8B5CF6;
-    --gold:   #F59E0B;
+    --cyan:       #00D4FF;
+    --violet:     #8B5CF6;
+    --gold:       #F59E0B;
+    --bg:         #080B10;
+    --sidebar-bg: rgba(6,9,14,0.94);
   }
 
   *, *::before, *::after { box-sizing: border-box; }
