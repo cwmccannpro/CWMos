@@ -2,30 +2,36 @@
 -- Outreach email agent: state tracking and run history
 
 CREATE TABLE IF NOT EXISTS outreach_agent (
+  user_id      UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  enabled      BOOLEAN NOT NULL DEFAULT false,
+  daily_limit  INTEGER NOT NULL DEFAULT 10,
+  sends_today  INTEGER NOT NULL DEFAULT 0,
+  last_reset   DATE    NOT NULL DEFAULT CURRENT_DATE,
+  niches       JSONB   NOT NULL DEFAULT '[
+    {"niche":"roofing contractor","city":"Bridgeport","state":"CT"},
+    {"niche":"septic service","city":"Waterbury","state":"CT"},
+    {"niche":"appliance repair","city":"Hartford","state":"CT"}
+  ]'::jsonb,
+  updated_at   TIMESTAMPTZ DEFAULT now()
+);
+
+-- One row per email sent or pipeline run
+CREATE TABLE IF NOT EXISTS outreach_runs (
   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id         UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  enabled         BOOLEAN NOT NULL DEFAULT false,
-  daily_limit     INTEGER NOT NULL DEFAULT 10,
-  batch_size      INTEGER NOT NULL DEFAULT 2,
-  emails_today    INTEGER NOT NULL DEFAULT 0,
-  last_reset_date DATE    NOT NULL DEFAULT CURRENT_DATE,
-  created_at      TIMESTAMPTZ DEFAULT now(),
-  updated_at      TIMESTAMPTZ DEFAULT now(),
-  UNIQUE(user_id)
+  run_at          TIMESTAMPTZ DEFAULT now(),
+  action          TEXT,          -- 'email_sent' | 'pipeline_run'
+  lead_name       TEXT,
+  lead_email      TEXT,
+  niche           TEXT,
+  city            TEXT,
+  claude_cost_usd NUMERIC(8,5)  DEFAULT 0,
+  emails_sent     INTEGER       DEFAULT 0
 );
 
-CREATE TABLE IF NOT EXISTS outreach_runs (
-  id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id      UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  emails_sent  INTEGER NOT NULL DEFAULT 0,
-  leads_found  INTEGER NOT NULL DEFAULT 0,
-  status       TEXT NOT NULL DEFAULT 'running', -- running | completed | error
-  notes        TEXT,
-  started_at   TIMESTAMPTZ DEFAULT now(),
-  completed_at TIMESTAMPTZ
-);
+CREATE INDEX IF NOT EXISTS outreach_runs_user_date ON outreach_runs(user_id, run_at DESC);
 
--- Trigger to keep updated_at fresh on outreach_agent
+-- Trigger to keep updated_at fresh
 CREATE OR REPLACE FUNCTION update_updated_at_column()
 RETURNS TRIGGER AS $$
 BEGIN NEW.updated_at = now(); RETURN NEW; END;
@@ -41,32 +47,13 @@ ALTER TABLE outreach_runs  ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Users manage own outreach agent" ON outreach_agent FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
 CREATE POLICY "Users manage own outreach runs"  ON outreach_runs  FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
 
--- Atomic increment with daily reset (called by the Python agent)
-CREATE OR REPLACE FUNCTION increment_outreach_emails(p_user_id UUID, p_count INTEGER)
-RETURNS TABLE (emails_today INTEGER, daily_limit INTEGER, can_send BOOLEAN)
-LANGUAGE plpgsql SECURITY DEFINER
-AS $$
-DECLARE v outreach_agent%ROWTYPE;
+-- Atomic increment (matches Python agent's call: increment_sends_today)
+CREATE OR REPLACE FUNCTION increment_sends_today(p_user_id UUID, p_count INTEGER)
+RETURNS VOID LANGUAGE plpgsql SECURITY DEFINER AS $$
 BEGIN
-  -- Reset counter if it's a new day
   UPDATE outreach_agent
-  SET emails_today    = CASE WHEN last_reset_date < CURRENT_DATE THEN 0 ELSE emails_today END,
-      last_reset_date = CURRENT_DATE,
-      updated_at      = now()
+  SET sends_today = sends_today + p_count,
+      updated_at  = now()
   WHERE user_id = p_user_id;
-
-  -- Increment and return new state
-  UPDATE outreach_agent
-  SET emails_today = emails_today + p_count,
-      updated_at   = now()
-  WHERE user_id = p_user_id AND enabled = true
-  RETURNING * INTO v;
-
-  IF v IS NULL THEN
-    SELECT a.emails_today, a.daily_limit INTO v.emails_today, v.daily_limit
-    FROM outreach_agent a WHERE a.user_id = p_user_id;
-  END IF;
-
-  RETURN QUERY SELECT v.emails_today, v.daily_limit, (v.emails_today <= v.daily_limit);
 END;
 $$;
