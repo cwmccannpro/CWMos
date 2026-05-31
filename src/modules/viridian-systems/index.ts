@@ -11,7 +11,7 @@ export const viridianSystemsModule: ModuleDefinition = {
   routes: [
     {
       path: '/viridian-systems',
-      label: 'Viridian Systems',
+      label: 'Viridian',
       icon: 'Leaf',
     },
   ],

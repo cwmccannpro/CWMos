@@ -21,9 +21,13 @@ const ICON_MAP: Record<string, LucideIcon> = {
 
 // Sidebar group definitions — paths that belong together under a collapsible header
 const NAV_GROUPS: { id: string; label: string; paths: string[] }[] = [
-  { id: 'health',  label: 'Health',  paths: ['/fitness', '/nutrition', '/supplements'] },
-  { id: 'finance', label: 'Finance', paths: ['/finance', '/finance/budget', '/finance/investing'] },
+  { id: 'health',   label: 'Health',   paths: ['/fitness', '/nutrition', '/supplements'] },
+  { id: 'finance',  label: 'Finance',  paths: ['/finance', '/finance/budget', '/finance/investing'] },
+  { id: 'projects', label: 'Projects', paths: ['/viridian-systems', '/content-factory'] },
 ];
+
+// Paths rendered in the bottom bar instead of the main nav
+const BOTTOM_NAV_PATHS = new Set(['/settings']);
 
 function NavIcon({ name, size = 15 }: { name?: string; size?: number }) {
   const Icon = name ? ICON_MAP[name] : null;
@@ -113,17 +117,21 @@ export function Sidebar({ collapsed, onToggleCollapse, onOpenMasterController }:
     mod.routes.map(route => ({ href: route.path, label: route.label, icon: route.icon }))
   );
 
-  // Determine which paths belong to groups
+  // Determine which paths are grouped or bottom-only
   const groupedPaths = new Set(NAV_GROUPS.flatMap(g => g.paths));
+  const excludedPaths = new Set([...groupedPaths, ...BOTTOM_NAV_PATHS]);
 
-  // Standalone items: not in any group
-  const standaloneRoutes = allRoutes.filter(r => !groupedPaths.has(r.href));
+  // Standalone items: not in any group and not bottom-bar
+  const standaloneRoutes = allRoutes.filter(r => !excludedPaths.has(r.href));
 
   // Dashboard is always first standalone
   const navItems = [
     { href: '/', label: 'Dashboard', icon: 'LayoutGrid' },
     ...standaloneRoutes,
   ];
+
+  // Bottom-bar extra items (Settings)
+  const bottomNavItems = allRoutes.filter(r => BOTTOM_NAV_PATHS.has(r.href));
 
   // Map grouped paths to their route info
   const routeMap = Object.fromEntries(allRoutes.map(r => [r.href, r]));
@@ -216,6 +224,11 @@ export function Sidebar({ collapsed, onToggleCollapse, onOpenMasterController }:
 
       {/* Bottom */}
       <div className="px-2 pb-3 pt-2 space-y-1 shrink-0" style={{ borderTop: '1px solid rgba(0,212,255,0.07)' }}>
+        {/* Settings + other bottom-bar nav items */}
+        {bottomNavItems.map(item => (
+          <NavLink key={item.href} {...item} collapsed={collapsed} active={pathname === item.href} />
+        ))}
+
         <button
           onClick={onOpenMasterController}
           title={collapsed ? 'Master Controller' : undefined}
