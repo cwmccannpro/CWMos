@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback } from 'react';
 import {
   Bot, CheckCircle2, Clock, Mail, Zap,
   ChevronDown, ChevronUp, Copy, RefreshCw, Loader2, ToggleLeft, ToggleRight,
-  AlertCircle, DollarSign,
+  AlertCircle, DollarSign, BookOpen,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -69,7 +69,8 @@ export default function AgentManagerPage() {
   const [genning, setGenning]       = useState(false);
   const [runsOpen, setRunsOpen]     = useState(true);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [dailyLimit, setDailyLimit] = useState(10);
+  const [guideOpen, setGuideOpen]       = useState(false);
+  const [dailyLimit, setDailyLimit]     = useState(10);
 
   const load = useCallback(async () => {
     const [intRes, runsRes] = await Promise.all([
@@ -214,12 +215,18 @@ export default function AgentManagerPage() {
             </div>
           ) : null}
 
-          {/* Settings */}
+          {/* Settings + Integration Guide row */}
           <div className="px-5 py-3" style={{ borderBottom: '1px solid rgba(0,212,255,0.07)' }}>
-            <button onClick={() => setSettingsOpen(v => !v)} className="flex items-center gap-2 text-zinc-500 hover:text-zinc-300 text-xs transition-colors w-full">
-              <Zap size={11} /><span>Settings</span>
-              {settingsOpen ? <ChevronUp size={11} className="ml-auto" /> : <ChevronDown size={11} className="ml-auto" />}
-            </button>
+            <div className="flex items-center gap-4">
+              <button onClick={() => { setSettingsOpen(v => !v); setGuideOpen(false); }} className="flex items-center gap-2 text-zinc-500 hover:text-zinc-300 text-xs transition-colors">
+                <Zap size={11} /><span>Settings</span>
+                {settingsOpen ? <ChevronUp size={11} /> : <ChevronDown size={11} />}
+              </button>
+              <button onClick={() => { setGuideOpen(v => !v); setSettingsOpen(false); }} className="flex items-center gap-2 text-zinc-500 hover:text-zinc-300 text-xs transition-colors ml-auto">
+                <BookOpen size={11} /><span>Integration Guide</span>
+                {guideOpen ? <ChevronUp size={11} /> : <ChevronDown size={11} />}
+              </button>
+            </div>
             {settingsOpen && (
               <div className="pt-3 space-y-3">
                 <div>
@@ -233,6 +240,55 @@ export default function AgentManagerPage() {
                   style={{ background: 'rgba(0,212,255,0.1)', color: '#00D4FF', border: '1px solid rgba(0,212,255,0.2)' }}>
                   Save
                 </button>
+              </div>
+            )}
+
+            {/* Integration Guide */}
+            {guideOpen && (
+              <div className="pt-4 space-y-4">
+                {/* Step 1 */}
+                <div>
+                  <p style={{ fontFamily: 'var(--font-mono)', fontSize: '0.48rem', letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(0,212,255,0.4)', marginBottom: '6px' }}>
+                    Step 1 — Add to outreach-engine/.env
+                  </p>
+                  <pre className="text-[11px] text-zinc-300 font-mono bg-zinc-900 rounded-xl px-4 py-3 leading-relaxed overflow-x-auto" style={{ border: '1px solid rgba(0,212,255,0.08)' }}>{`DASHBOARD_URL=https://ctrlpanel.pages.dev\nDASHBOARD_BEARER_TOKEN=<copy key below>`}</pre>
+                </div>
+
+                {/* Step 2 */}
+                <div>
+                  <p style={{ fontFamily: 'var(--font-mono)', fontSize: '0.48rem', letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(0,212,255,0.4)', marginBottom: '6px' }}>
+                    Step 2 — Enable the agent with the toggle above, then let Task Scheduler run it
+                  </p>
+                </div>
+
+                {/* Endpoints */}
+                <div>
+                  <p style={{ fontFamily: 'var(--font-mono)', fontSize: '0.48rem', letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(0,212,255,0.4)', marginBottom: '6px' }}>
+                    Endpoints your agent calls (Bearer token required)
+                  </p>
+                  <div className="rounded-xl overflow-hidden" style={{ border: '1px solid rgba(0,212,255,0.08)', background: 'rgba(0,0,0,0.3)' }}>
+                    {[
+                      { method: 'GET',  path: '/api/outreach/status', note: '→ { enabled, sends_today, daily_limit, niches, cost_7d_usd }' },
+                      { method: 'POST', path: '/api/outreach/log',    note: '→ { action, lead_name, lead_email, niche, city, claude_cost_usd, emails_sent }' },
+                    ].map(({ method, path, note }) => (
+                      <div key={path} className="flex flex-col gap-0.5 px-3 py-2.5" style={{ borderBottom: '1px solid rgba(0,212,255,0.05)' }}>
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] font-mono font-bold" style={{ color: method === 'GET' ? '#10b981' : '#00D4FF', width: '30px' }}>{method}</span>
+                          <span className="text-xs font-mono text-zinc-300">{path}</span>
+                        </div>
+                        <p className="text-[10px] text-zinc-600 font-mono pl-9">{note}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Task Scheduler */}
+                <div>
+                  <p style={{ fontFamily: 'var(--font-mono)', fontSize: '0.48rem', letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(0,212,255,0.4)', marginBottom: '6px' }}>
+                    Windows Task Scheduler (every 2 hrs, 9am–7pm)
+                  </p>
+                  <pre className="text-[11px] text-zinc-400 font-mono bg-zinc-900 rounded-xl px-4 py-3 leading-relaxed overflow-x-auto" style={{ border: '1px solid rgba(0,212,255,0.08)' }}>{`Program : C:\\Users\\cmcca\\AppData\\Local\\Python\\pythoncore-3.14-64\\python.exe\nArgs    : scripts\\agent.py\nStart in: C:\\Users\\cmcca\\OneDrive\\Documents\\Viridian Outreach\\outreach-engine`}</pre>
+                </div>
               </div>
             )}
           </div>
@@ -308,15 +364,6 @@ export default function AgentManagerPage() {
           )}
         </div>
 
-        {/* .env reference */}
-        <div className="rounded-xl px-4 py-3.5 space-y-2" style={{ background: 'rgba(0,212,255,0.03)', border: '1px solid rgba(0,212,255,0.07)' }}>
-          <p style={{ fontFamily: 'var(--font-mono)', fontSize: '0.5rem', letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(0,212,255,0.3)' }}>outreach-engine/.env</p>
-          <pre className="text-[11px] text-zinc-400 font-mono">{`DASHBOARD_URL=https://ctrlpanel.pages.dev\nDASHBOARD_BEARER_TOKEN=<paste key above>`}</pre>
-          <p style={{ fontFamily: 'var(--font-mono)', fontSize: '0.5rem', letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(0,212,255,0.3)', paddingTop: '6px' }}>endpoints your agent calls</p>
-          <pre className="text-[11px] text-zinc-400 font-mono leading-relaxed">{`GET  /api/outreach/status  → { enabled, sends_today, daily_limit, niches, cost_7d_usd }
-POST /api/outreach/log     → { action, lead_name, lead_email, niche, city, claude_cost_usd, emails_sent }
-POST /api/outreach/toggle  → { enabled: true/false }  (web UI only)`}</pre>
-        </div>
       </div>
     </div>
   );
