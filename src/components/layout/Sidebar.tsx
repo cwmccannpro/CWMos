@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
-  LayoutGrid, CalendarDays, LayoutDashboard, Bot, ChevronLeft, ChevronRight, ChevronDown,
+  LayoutGrid, CalendarDays, LayoutDashboard, ChevronLeft, ChevronRight, ChevronDown,
   Leaf, BarChart3, Target, HeartPulse, UtensilsCrossed, Pill, Dumbbell,
   TrendingUp, Wallet, BarChart2,
   Settings2, LogOut, type LucideIcon,
@@ -14,16 +14,16 @@ import { createClient } from '@/lib/supabase/client';
 import { useEffect, useState, useCallback } from 'react';
 
 const ICON_MAP: Record<string, LucideIcon> = {
-  LayoutGrid, CalendarDays, LayoutDashboard, Bot, Leaf, BarChart3, Target,
+  LayoutGrid, CalendarDays, LayoutDashboard, Leaf, BarChart3, Target,
   HeartPulse, UtensilsCrossed, Pill, Dumbbell, Settings2,
   TrendingUp, Wallet, BarChart2,
 };
 
 // Sidebar group definitions — paths that belong together under a collapsible header
 const NAV_GROUPS: { id: string; label: string; paths: string[] }[] = [
+  { id: 'projects', label: 'Projects', paths: ['/viridian-systems', '/content-factory'] },
   { id: 'health',   label: 'Health',   paths: ['/fitness', '/nutrition', '/supplements'] },
   { id: 'finance',  label: 'Finance',  paths: ['/finance', '/finance/budget', '/finance/investing'] },
-  { id: 'projects', label: 'Projects', paths: ['/viridian-systems', '/content-factory'] },
 ];
 
 // Paths rendered in the bottom bar instead of the main nav
@@ -73,10 +73,9 @@ function NavLink({ href, label, icon, collapsed, active }: {
 interface SidebarProps {
   collapsed: boolean;
   onToggleCollapse: () => void;
-  onOpenMasterController: () => void;
 }
 
-export function Sidebar({ collapsed, onToggleCollapse, onOpenMasterController }: SidebarProps) {
+export function Sidebar({ collapsed, onToggleCollapse }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const [userEmail, setUserEmail] = useState<string | null>(null);
@@ -229,17 +228,6 @@ export function Sidebar({ collapsed, onToggleCollapse, onOpenMasterController }:
           <NavLink key={item.href} {...item} collapsed={collapsed} active={pathname === item.href} />
         ))}
 
-        <button
-          onClick={onOpenMasterController}
-          title={collapsed ? 'Master Controller' : undefined}
-          className={cn('flex items-center gap-2.5 w-full px-2 py-2 rounded-md transition-all duration-200 animate-glow-pulse', collapsed ? 'justify-center' : '')}
-          style={{ color: '#00D4FF', border: '1px solid rgba(0,212,255,0.22)', background: 'rgba(0,212,255,0.04)' }}
-          onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(0,212,255,0.1)'; (e.currentTarget as HTMLElement).style.borderColor = 'rgba(0,212,255,0.45)'; }}
-          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(0,212,255,0.04)'; (e.currentTarget as HTMLElement).style.borderColor = 'rgba(0,212,255,0.22)'; }}
-        >
-          <span className="shrink-0"><Bot size={14} /></span>
-          {!collapsed && <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.62rem', letterSpacing: '0.1em' }}>MASTER CTRL</span>}
-        </button>
 
         {userEmail && (
           <div className={cn('flex items-center gap-2 px-2 py-1.5 rounded-md', collapsed ? 'justify-center' : 'justify-between')}>

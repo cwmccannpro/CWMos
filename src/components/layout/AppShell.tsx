@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { Bot } from 'lucide-react';
 import { Sidebar } from './Sidebar';
 import { MasterController } from '@/components/master-controller/MasterController';
 import '@/lib/modules';
@@ -21,17 +22,46 @@ export function AppShell({ children }: AppShellProps) {
       <Sidebar
         collapsed={sidebarCollapsed}
         onToggleCollapse={() => setSidebarCollapsed((c) => !c)}
-        onOpenMasterController={() => setMcOpen(true)}
       />
 
       {/* Main content with radial glow */}
       <main
-        className="flex-1 overflow-y-auto relative"
+        className="flex-1 overflow-hidden relative flex flex-col"
         style={{
           background: 'radial-gradient(ellipse 90% 55% at 50% 35%, rgba(0,25,55,0.45) 0%, transparent 70%), #080B10',
         }}
       >
-        {children}
+        {/* Master Controller trigger — top right */}
+        <div className="absolute top-3 right-4 z-30">
+          <button
+            onClick={() => setMcOpen(true)}
+            className="flex items-center gap-2 px-3 py-2 rounded-xl animate-glow-pulse transition-all"
+            style={{
+              color: '#00D4FF',
+              border: '1px solid rgba(0,212,255,0.22)',
+              background: 'rgba(0,212,255,0.04)',
+              backdropFilter: 'blur(8px)',
+            }}
+            onMouseEnter={e => {
+              (e.currentTarget as HTMLElement).style.background = 'rgba(0,212,255,0.1)';
+              (e.currentTarget as HTMLElement).style.borderColor = 'rgba(0,212,255,0.45)';
+            }}
+            onMouseLeave={e => {
+              (e.currentTarget as HTMLElement).style.background = 'rgba(0,212,255,0.04)';
+              (e.currentTarget as HTMLElement).style.borderColor = 'rgba(0,212,255,0.22)';
+            }}
+            aria-label="Open Master Controller"
+          >
+            <Bot size={14} />
+            <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.62rem', letterSpacing: '0.1em' }}>
+              MASTER CTRL
+            </span>
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto">
+          {children}
+        </div>
       </main>
 
       <MasterController open={mcOpen} onClose={() => setMcOpen(false)} />
