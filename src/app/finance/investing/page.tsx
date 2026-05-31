@@ -44,11 +44,15 @@ export default function InvestingPage() {
   }
 
   useEffect(() => {
-    loadHoldings().then(() => {});
+    loadHoldings();
   }, []);
 
+  // Fetch quotes on initial holdings load, then refresh every 60 seconds
   useEffect(() => {
-    if (holdings.length > 0) fetchQuotes(holdings);
+    if (holdings.length === 0) return;
+    fetchQuotes(holdings);
+    const iv = setInterval(() => fetchQuotes(holdings), 60_000);
+    return () => clearInterval(iv);
   }, [holdings]);
 
   async function addHolding() {

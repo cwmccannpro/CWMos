@@ -168,20 +168,27 @@ export function InvestingSnapshotWidget({ widgetInstanceId }: WidgetProps) {
 
   useEffect(() => {
     if (!data?.investments?.length) { setPricesLoaded(true); return; }
-    const tickers = data.investments.map((inv: any) => inv.ticker);
-    Promise.all(
-      tickers.map(t =>
-        fetch(`/api/finance/stocks?ticker=${encodeURIComponent(t)}`)
-          .then(r => r.json())
-          .then(d => ({ ticker: t, price: d.price ?? null, prevClose: d.prevClose ?? null }))
-          .catch(() => ({ ticker: t, price: null, prevClose: null }))
-      )
-    ).then(results => {
-      const map: Record<string, StockPrice> = {};
-      results.forEach(r => { map[r.ticker] = { price: r.price, prevClose: r.prevClose }; });
-      setPrices(map);
-      setPricesLoaded(true);
-    });
+
+    function refresh() {
+      const tickers = data!.investments.map((inv: any) => inv.ticker);
+      Promise.all(
+        tickers.map((t: string) =>
+          fetch(`/api/finance/stocks?ticker=${encodeURIComponent(t)}`)
+            .then(r => r.json())
+            .then(d => ({ ticker: t, price: d.price ?? null, prevClose: d.prevClose ?? null }))
+            .catch(() => ({ ticker: t, price: null, prevClose: null }))
+        )
+      ).then(results => {
+        const map: Record<string, StockPrice> = {};
+        results.forEach(r => { map[r.ticker] = { price: r.price, prevClose: r.prevClose }; });
+        setPrices(map);
+        setPricesLoaded(true);
+      });
+    }
+
+    refresh();
+    const iv = setInterval(refresh, 60_000);
+    return () => clearInterval(iv);
   }, [data]);
 
   if (loading || !pricesLoaded) return <Loading />;

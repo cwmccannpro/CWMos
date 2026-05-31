@@ -490,7 +490,6 @@ export default function SettingsPage() {
           ) : (
             <div className="space-y-3">
               <NutritionSyncCard existing={get('nutrition-chatgpt')} onSaved={load} />
-              <TrelloCard existing={get('trello')} />
               <ICalCard existing={get('ical')} />
             </div>
           )}
