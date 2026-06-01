@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Bot } from 'lucide-react';
 import { Sidebar } from './Sidebar';
 import { MasterController } from '@/components/master-controller/MasterController';
@@ -8,6 +8,46 @@ import '@/lib/modules';
 
 interface AppShellProps {
   children: React.ReactNode;
+}
+
+function LiveClock() {
+  const [now, setNow] = useState<Date | null>(null);
+
+  useEffect(() => {
+    setNow(new Date());
+    const iv = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(iv);
+  }, []);
+
+  if (!now) return null;
+
+  const time = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
+  const date = now.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+
+  return (
+    <div className="flex items-baseline gap-2.5 select-none">
+      <span style={{
+        fontFamily: 'var(--font-mono)',
+        fontSize: '0.82rem',
+        fontWeight: 700,
+        letterSpacing: '0.08em',
+        color: '#ffffff',
+        fontVariantNumeric: 'tabular-nums',
+        textShadow: '0 0 18px rgba(0,212,255,0.25)',
+      }}>
+        {time}
+      </span>
+      <span style={{
+        fontFamily: 'var(--font-mono)',
+        fontSize: '0.55rem',
+        letterSpacing: '0.12em',
+        textTransform: 'uppercase',
+        color: 'rgba(0,212,255,0.4)',
+      }}>
+        {date}
+      </span>
+    </div>
+  );
 }
 
 export function AppShell({ children }: AppShellProps) {
@@ -31,8 +71,13 @@ export function AppShell({ children }: AppShellProps) {
           background: 'radial-gradient(ellipse 90% 55% at 50% 35%, rgba(0,25,55,0.45) 0%, transparent 70%), #080B10',
         }}
       >
-        {/* Top bar — MC button lives here so it never overlaps page content */}
-        <div className="flex items-center justify-end px-4 shrink-0" style={{ height: '44px', borderBottom: '1px solid rgba(0,212,255,0.06)' }}>
+        {/* Top bar */}
+        <div
+          className="flex items-center justify-between px-4 shrink-0"
+          style={{ height: '44px', borderBottom: '1px solid rgba(0,212,255,0.06)' }}
+        >
+          <LiveClock />
+
           <button
             onClick={() => setMcOpen(true)}
             className="flex items-center gap-2 px-3 py-1.5 rounded-xl animate-glow-pulse transition-all"
