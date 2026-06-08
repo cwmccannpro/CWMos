@@ -15,61 +15,6 @@ interface StoredIntegration {
   updated_at: string;
 }
 
-// ── Trello ────────────────────────────────────────────────────────────────────
-
-function TrelloCard({ existing }: { existing: StoredIntegration | null }) {
-  const [open, setOpen] = useState(!existing);
-  const [apiKey, setApiKey] = useState((existing?.credentials?.api_key as string) ?? '');
-  const [token, setToken] = useState((existing?.credentials?.token as string) ?? '');
-  const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
-  const [saveError, setSaveError] = useState<string | null>(null);
-
-  async function save() {
-    setSaving(true);
-    setSaveError(null);
-    const res = await fetch('/api/integrations', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ provider: 'trello', credentials: { api_key: apiKey, token }, enabled: true }),
-    });
-    setSaving(false);
-    if (res.ok) {
-      setSaved(true);
-      setTimeout(() => setSaved(false), 3000);
-    } else {
-      const body = await res.json().catch(() => ({}));
-      setSaveError(body.error ?? `Save failed (${res.status})`);
-    }
-  }
-
-  const connected = !!existing?.credentials?.api_key;
-
-  return (
-    <IntegrationCard
-      name="Trello"
-      description="Sync your boards, lists, and cards"
-      logo="🟦"
-      connected={connected}
-      open={open}
-      onToggle={() => setOpen(v => !v)}
-    >
-      <div className="space-y-4">
-        <Steps steps={[
-          { n: 1, text: 'Go to', link: { label: 'trello.com/power-ups/admin', url: 'https://trello.com/power-ups/admin' } },
-          { n: 2, text: 'Create a new Power-Up → copy the API Key shown on that page' },
-          { n: 3, text: 'On the same page click "Token" → approve and copy the token' },
-        ]} />
-        <div className="grid grid-cols-2 gap-3">
-          <Field label="API Key" value={apiKey} onChange={setApiKey} placeholder="trello api key" />
-          <Field label="Token" value={token} onChange={setToken} placeholder="trello token" />
-        </div>
-        <SaveRow saving={saving} saved={saved} saveError={saveError} onSave={save} disabled={!apiKey || !token} />
-      </div>
-    </IntegrationCard>
-  );
-}
-
 // ── iCal ──────────────────────────────────────────────────────────────────────
 
 function ICalCard({ existing }: { existing: StoredIntegration | null }) {
@@ -404,23 +349,6 @@ function Steps({ steps }: {
         </li>
       ))}
     </ol>
-  );
-}
-
-function Field({ label, value, onChange, placeholder }: {
-  label: string; value: string; onChange: (v: string) => void; placeholder: string;
-}) {
-  return (
-    <div>
-      <label className="block text-zinc-400 text-xs font-medium mb-1.5">{label}</label>
-      <input
-        type="text"
-        value={value}
-        onChange={e => onChange(e.target.value)}
-        placeholder={placeholder}
-        className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2.5 text-xs text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/30 transition-colors font-mono"
-      />
-    </div>
   );
 }
 

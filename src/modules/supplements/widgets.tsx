@@ -1,9 +1,10 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { Check, Flame } from 'lucide-react';
+import { Check, Flame, Pill, CheckCircle2, Circle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { loadHealth, saveHealth, syncHealth, supLogKey } from '@/lib/health/store';
+import type { HealthData } from '@/lib/health/store';
 import type { WidgetProps } from '@/types';
 
 const DAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
@@ -14,6 +15,90 @@ function dateKey(d: Date) {
 
 function addDays(d: Date, n: number) {
   const r = new Date(d); r.setDate(r.getDate() + n); return r;
+}
+
+// ─── Supplement Checklist Widget (today's quick checklist) ────────────────────
+
+export function HealthSupplementWidget({ widgetInstanceId }: WidgetProps) {
+  const [data, setData] = useState<HealthData | null>(null);
+
+  const reload = useCallback(() => setData(loadHealth()), []);
+
+  useEffect(() => {
+    reload();
+    syncHealth(setData);
+  }, [reload, widgetInstanceId]);
+
+  const toggle = useCallback((id: string) => {
+    const d = loadHealth();
+    const k = supLogKey(new Date(), id);
+    d.supplementLog[k] = !d.supplementLog[k];
+    saveHealth(d);
+    setData({ ...d });
+  }, []);
+
+  if (!data) return <div className="h-full flex items-center justify-center"><div className="h-4 w-24 bg-zinc-800 rounded animate-pulse" /></div>;
+
+  const active = data.supplements.filter((s) => s.active);
+  const today = new Date();
+  const doneCount = active.filter((s) => data.supplementLog[supLogKey(today, s.id)]).length;
+
+  return (
+    <div className="h-full flex flex-col gap-2 overflow-hidden">
+      <div className="flex items-center justify-between shrink-0">
+        <div className="flex items-center gap-2">
+          <Pill size={12} className="text-emerald-400 shrink-0" />
+          <span className="text-zinc-400 text-xs font-medium uppercase tracking-wider">Supplements</span>
+        </div>
+        {active.length > 0 && (
+          <span className={cn('text-[10px] font-semibold tabular-nums', doneCount === active.length ? 'text-emerald-400' : 'text-zinc-500')}>
+            {doneCount}/{active.length}
+          </span>
+        )}
+      </div>
+
+      {active.length > 0 && (
+        <div className="h-1 bg-zinc-800 rounded-full shrink-0 overflow-hidden">
+          <div className="h-full bg-emerald-500 rounded-full transition-all"
+            style={{ width: active.length ? `${(doneCount / active.length) * 100}%` : '0%' }} />
+        </div>
+      )}
+
+      {active.length === 0 ? (
+        <p className="text-zinc-600 text-xs">No active supplements — add them in Supplements.</p>
+      ) : (
+        <ul className="space-y-1 overflow-y-auto flex-1">
+          {active.map((s) => {
+            const done = !!data.supplementLog[supLogKey(today, s.id)];
+            return (
+              <li key={s.id}>
+                <button
+                  onClick={() => toggle(s.id)}
+                  className={cn(
+                    'w-full flex items-center gap-2.5 px-2 py-1.5 rounded text-xs transition-all text-left',
+                    done ? 'bg-emerald-500/10' : 'bg-zinc-800/60 hover:bg-zinc-800'
+                  )}
+                >
+                  {done
+                    ? <CheckCircle2 size={13} className="text-emerald-400 shrink-0" />
+                    : <Circle size={13} className="text-zinc-600 shrink-0" />}
+                  <div className="min-w-0 flex-1">
+                    <span className={cn('leading-snug', done ? 'text-zinc-400 line-through' : 'text-zinc-200')}>
+                      {s.name}
+                    </span>
+                    {s.dosage && <span className="text-zinc-600 ml-1.5">{s.dosage}</span>}
+                  </div>
+                  {s.times.length > 0 && (
+                    <span className="text-zinc-600 text-[9px] shrink-0">{s.times[0]}</span>
+                  )}
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </div>
+  );
 }
 
 // ─── Supplement Analytics Widget ─────────────────────────────────────────────

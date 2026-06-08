@@ -1,5 +1,4 @@
-import { HealthSupplementWidget } from '@/modules/health/widgets';
-import { SupplementAnalyticsWidget } from './widgets';
+import { HealthSupplementWidget, SupplementAnalyticsWidget } from './widgets';
 import type { ModuleDefinition } from '@/types';
 
 export const supplementsModule: ModuleDefinition = {

@@ -5,10 +5,10 @@ import Link from 'next/link';
 
 const QUICK_LINKS = [
   {
-    label: 'Trello Board',
-    description: 'Documentation & Notes board',
+    label: 'Project Board',
+    description: 'Kanban board for tasks & projects',
     icon: <LayoutDashboard size={16} className="text-blue-400" />,
-    href: '/trello',
+    href: '/project-boards',
     internal: true,
   },
 ];

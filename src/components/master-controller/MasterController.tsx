@@ -14,7 +14,7 @@ interface MasterControllerProps {
 const WELCOME_MESSAGE: ChatMessage = {
   id: 'welcome',
   role: 'assistant',
-  content: `CTRL ONLINE.\n\nI'm your AI command core. Ask me anything about your calendar, Trello, nutrition, or just talk.\n\n▸ "What's on my calendar today?"\n▸ "Create a Trello card to update the homepage"\n▸ "How are my macros looking?"`,
+  content: `CTRL ONLINE.\n\nI'm your AI command core. Ask me anything about your calendar, nutrition, or just talk.\n\n▸ "What's on my calendar today?"\n▸ "How are my macros looking?"\n▸ "What's my supplement streak?"`,
   timestamp: new Date(),
 };
 

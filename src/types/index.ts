@@ -104,8 +104,6 @@ export interface ModuleAction {
 export type Permission =
   | 'calendar:read'
   | 'calendar:write'
-  | 'trello:read'
-  | 'trello:write'
   | 'agent-manager:read'
   | 'agent-manager:write'
   | 'viridian-systems:read'

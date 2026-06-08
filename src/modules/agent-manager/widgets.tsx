@@ -9,7 +9,7 @@ import type { WidgetProps, ChatMessage } from '@/types';
 const WELCOME: ChatMessage = {
   id: 'welcome',
   role: 'assistant',
-  content: 'Hi! Ask me about your calendar, Trello, habits, or anything else.',
+  content: 'Hi! Ask me about your calendar, habits, or anything else.',
   timestamp: new Date(),
 };
 

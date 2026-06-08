@@ -23,9 +23,9 @@ function getDefaultLayout(): WidgetLayoutItem[] {
   }));
 }
 
-const ID_MIGRATIONS: Record<string, string> = {
-  'trello-recent-cards': 'trello-list',
-};
+// Maps retired widget definition ids onto their current equivalents so old saved
+// layouts keep resolving. Empty for now.
+const ID_MIGRATIONS: Record<string, string> = {};
 
 function normalizeLayout(raw: WidgetLayoutItem[]): WidgetLayoutItem[] {
   return raw.map((item) => ({
