@@ -12,7 +12,14 @@ export interface OrchestratorResponse {
   intent?: OrchestratorIntent;
 }
 
-const client = new OpenAI();
+// Lazily instantiated: the OpenAI SDK throws at construction when no API key is
+// present, and this module gets imported during `next build` page-data collection
+// (where the build env has no OPENAI_API_KEY). Constructing on first use keeps the
+// import side-effect-free. processMessage only calls this after the key check.
+let _client: OpenAI | null = null;
+function getClient(): OpenAI {
+  return (_client ??= new OpenAI());
+}
 
 // Model is overridable via env so the brain can be swapped without code changes.
 // Defaults to a fast, inexpensive chat model that supports function calling.
@@ -85,7 +92,7 @@ export async function processMessage(userMessage: string): Promise<OrchestratorR
 
   let completion: OpenAI.Chat.Completions.ChatCompletion;
   try {
-    completion = await client.chat.completions.create({
+    completion = await getClient().chat.completions.create({
       model: MODEL,
       max_completion_tokens: 1024,
       messages,
@@ -124,7 +131,7 @@ export async function processMessage(userMessage: string): Promise<OrchestratorR
     // Send the tool result back so ChatGPT can craft a natural reply
     let followUp: OpenAI.Chat.Completions.ChatCompletion;
     try {
-      followUp = await client.chat.completions.create({
+      followUp = await getClient().chat.completions.create({
         model: MODEL,
         max_completion_tokens: 512,
         messages: [
