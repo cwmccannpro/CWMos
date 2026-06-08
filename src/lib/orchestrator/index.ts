@@ -1,38 +1,64 @@
-import Anthropic from '@anthropic-ai/sdk';
+import OpenAI from 'openai';
 import { v4 as uuidv4 } from 'uuid';
 import { registry } from '@/lib/registry';
 import type { OrchestratorIntent, ActionResult, ChatMessage } from '@/types';
+import type {
+  ChatCompletionTool,
+  ChatCompletionMessageParam,
+} from 'openai/resources/chat/completions';
 
 export interface OrchestratorResponse {
   message: ChatMessage;
   intent?: OrchestratorIntent;
 }
 
-const client = new Anthropic();
+const client = new OpenAI();
 
-const SYSTEM_PROMPT = `You are CTRL, the AI core of CTRLpanel — a personal life-OS command center.
-You have access to the user's calendar, Trello boards, and other tools through registered functions.
+// Model is overridable via env so the brain can be swapped without code changes.
+// Defaults to a fast, inexpensive chat model that supports function calling.
+const MODEL = process.env.OPENAI_MODEL ?? 'gpt-4o-mini';
+
+function buildSystemPrompt(): string {
+  const moduleNames = registry.getAllModules().map((m) => m.metadata.name);
+  const moduleList = moduleNames.length
+    ? moduleNames.join(', ')
+    : 'various modules';
+  return `You are CTRL, the AI core of CTRLpanel — a personal life-OS command center.
+You have access to the user's data through registered module tools: ${moduleList}.
 Be sharp, concise, and direct. Keep responses to 1-3 sentences unless displaying data.
 When you run a tool, summarize the result naturally — don't just repeat raw data.
 If you can't help with something, say so in one sentence.
 Today: ${new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}.`;
+}
 
-function buildTools(): Anthropic.Tool[] {
+// Map a module action parameter onto a JSON-schema property the model understands.
+function paramToSchema(type: string, options?: string[]) {
+  switch (type) {
+    case 'date':
+      return { type: 'string' as const, description: 'ISO 8601 date string' };
+    case 'enum':
+      return { type: 'string' as const, ...(options ? { enum: options } : {}) };
+    default:
+      return { type };
+  }
+}
+
+function buildTools(): ChatCompletionTool[] {
   return registry.getAllActions().map((action) => {
-    const properties: Record<string, { type: string; description: string }> = {};
+    const properties: Record<string, unknown> = {};
     for (const p of action.parameters) {
-      properties[p.name] = {
-        type: p.type === 'date' ? 'string' : p.type,
-        description: p.name,
-      };
+      properties[p.name] = { ...paramToSchema(p.type, p.options), description: p.name };
     }
     return {
-      name: `${action.moduleId}__${action.id}`,
-      description: `${action.description}. Examples: ${action.examples.join(' | ')}`,
-      input_schema: {
-        type: 'object' as const,
-        properties,
-        required: action.parameters.filter((p) => p.required).map((p) => p.name),
+      type: 'function',
+      function: {
+        name: `${action.moduleId}__${action.id}`,
+        description: `${action.description}. Examples: ${action.examples.join(' | ')}`,
+        parameters: {
+          type: 'object',
+          properties,
+          required: action.parameters.filter((p) => p.required).map((p) => p.name),
+        },
       },
     };
   });
@@ -45,37 +71,49 @@ function fallbackResponse(content: string): OrchestratorResponse {
 }
 
 export async function processMessage(userMessage: string): Promise<OrchestratorResponse> {
-  if (!process.env.ANTHROPIC_API_KEY) {
-    return fallbackResponse('AI brain offline — ANTHROPIC_API_KEY not configured.');
+  if (!process.env.OPENAI_API_KEY) {
+    return fallbackResponse('AI brain offline — OPENAI_API_KEY not configured.');
   }
 
   const tools = buildTools();
+  const SYSTEM_PROMPT = buildSystemPrompt();
 
-  let response: Anthropic.Message;
+  const messages: ChatCompletionMessageParam[] = [
+    { role: 'system', content: SYSTEM_PROMPT },
+    { role: 'user', content: userMessage },
+  ];
+
+  let completion: OpenAI.Chat.Completions.ChatCompletion;
   try {
-    response = await client.messages.create({
-      model: 'claude-haiku-4-5-20251001',
-      max_tokens: 1024,
-      system: SYSTEM_PROMPT,
-      tools,
-      messages: [{ role: 'user', content: userMessage }],
+    completion = await client.chat.completions.create({
+      model: MODEL,
+      max_completion_tokens: 1024,
+      messages,
+      ...(tools.length ? { tools } : {}),
     });
   } catch (err) {
     return fallbackResponse(`Connection error: ${err instanceof Error ? err.message : 'Unknown'}`);
   }
 
-  // Claude wants to execute an action
-  if (response.stop_reason === 'tool_use') {
-    const toolBlock = response.content.find((b): b is Anthropic.ToolUseBlock => b.type === 'tool_use');
-    if (!toolBlock) return fallbackResponse('Tool call malformed.');
+  const responseMessage = completion.choices[0]?.message;
+  const toolCall = responseMessage?.tool_calls?.[0];
 
-    const [moduleId, actionId] = toolBlock.name.split('__');
+  // ChatGPT wants to execute an action
+  if (responseMessage && toolCall?.type === 'function') {
+    const [moduleId, actionId] = toolCall.function.name.split('__');
     const action = registry.getAction(moduleId, actionId);
-    if (!action) return fallbackResponse(`Action "${toolBlock.name}" not registered.`);
+    if (!action) return fallbackResponse(`Action "${toolCall.function.name}" not registered.`);
+
+    let input: Record<string, unknown> = {};
+    try {
+      input = JSON.parse(toolCall.function.arguments || '{}');
+    } catch {
+      // Malformed arguments — fall through with empty input; the action validates.
+    }
 
     let result: ActionResult;
     try {
-      result = await action.execute(toolBlock.input as Record<string, unknown>);
+      result = await action.execute(input);
     } catch (err) {
       result = {
         success: false,
@@ -83,45 +121,40 @@ export async function processMessage(userMessage: string): Promise<OrchestratorR
       };
     }
 
-    // Send tool result back so Claude can craft a natural reply
-    let followUp: Anthropic.Message;
+    // Send the tool result back so ChatGPT can craft a natural reply
+    let followUp: OpenAI.Chat.Completions.ChatCompletion;
     try {
-      followUp = await client.messages.create({
-        model: 'claude-haiku-4-5-20251001',
-        max_tokens: 512,
-        system: SYSTEM_PROMPT,
-        tools,
+      followUp = await client.chat.completions.create({
+        model: MODEL,
+        max_completion_tokens: 512,
         messages: [
-          { role: 'user', content: userMessage },
-          { role: 'assistant', content: response.content },
-          {
-            role: 'user',
-            content: [{ type: 'tool_result', tool_use_id: toolBlock.id, content: result.message }],
-          },
+          ...messages,
+          responseMessage,
+          { role: 'tool', tool_call_id: toolCall.id, content: result.message },
         ],
+        ...(tools.length ? { tools } : {}),
       });
     } catch {
-      // Fall back to raw action message if second call fails
+      // Fall back to raw action message if the second call fails
       return {
         message: { id: uuidv4(), role: 'assistant', content: result.message, timestamp: new Date(), actionResult: result },
-        intent: { moduleId, actionId, parameters: toolBlock.input as Record<string, unknown>, confidence: 1 },
+        intent: { moduleId, actionId, parameters: input, confidence: 1 },
       };
     }
 
-    const text = followUp.content.find((b): b is Anthropic.TextBlock => b.type === 'text');
+    const text = followUp.choices[0]?.message?.content;
     return {
       message: {
         id: uuidv4(),
         role: 'assistant',
-        content: text?.text ?? result.message,
+        content: text ?? result.message,
         timestamp: new Date(),
         actionResult: result,
       },
-      intent: { moduleId, actionId, parameters: toolBlock.input as Record<string, unknown>, confidence: 1 },
+      intent: { moduleId, actionId, parameters: input, confidence: 1 },
     };
   }
 
   // Pure conversational reply
-  const text = response.content.find((b): b is Anthropic.TextBlock => b.type === 'text');
-  return fallbackResponse(text?.text ?? 'No response generated.');
+  return fallbackResponse(responseMessage?.content ?? 'No response generated.');
 }
