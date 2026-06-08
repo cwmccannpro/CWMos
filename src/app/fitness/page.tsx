@@ -5,7 +5,7 @@ import { Plus, Trash2 } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 import { cn } from '@/lib/utils';
 import {
-  loadHealth, saveHealth,
+  loadHealth, saveHealth, syncHealth,
   type HealthData, type DaySchedule, type Exercise, type WorkoutType,
   WORKOUT_COLORS,
 } from '@/lib/health/store';
@@ -125,7 +125,7 @@ export default function FitnessPage() {
   const today = new Date().getDay();
   const [selectedDay, setSelectedDay] = useState(today);
 
-  useEffect(() => { setData(loadHealth()); }, []);
+  useEffect(() => { setData(loadHealth()); syncHealth(setData); }, []);
 
   const handleChange = useCallback((updated: HealthData) => {
     setData(updated);

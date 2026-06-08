@@ -5,7 +5,7 @@ import { Plus, Trash2, Pencil, Check, X, Pill, Dumbbell } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 import { cn } from '@/lib/utils';
 import {
-  loadHealth, saveHealth,
+  loadHealth, saveHealth, syncHealth,
   type HealthData, type Supplement, type DaySchedule, type Exercise, type WorkoutType,
   WORKOUT_COLORS,
 } from '@/lib/health/store';
@@ -431,7 +431,7 @@ export default function HealthPage() {
   const [data, setData] = useState<HealthData | null>(null);
   const [tab, setTab] = useState<Tab>('supplements');
 
-  useEffect(() => { setData(loadHealth()); }, []);
+  useEffect(() => { setData(loadHealth()); syncHealth(setData); }, []);
 
   const handleChange = useCallback((updated: HealthData) => {
     setData(updated);

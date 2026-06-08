@@ -5,7 +5,7 @@ import { Plus, Trash2, Pencil, Check, X, Pill } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 import { cn } from '@/lib/utils';
 import {
-  loadHealth, saveHealth,
+  loadHealth, saveHealth, syncHealth,
   type HealthData, type Supplement,
 } from '@/lib/health/store';
 
@@ -114,7 +114,7 @@ export default function SupplementsPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
 
-  useEffect(() => { setData(loadHealth()); }, []);
+  useEffect(() => { setData(loadHealth()); syncHealth(setData); }, []);
 
   const handleChange = useCallback((updated: HealthData) => {
     setData(updated);

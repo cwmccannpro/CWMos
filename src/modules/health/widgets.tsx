@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { Pill, Dumbbell, CheckCircle2, Circle } from 'lucide-react';
-import { loadHealth, saveHealth, supLogKey, WORKOUT_COLORS } from '@/lib/health/store';
+import { loadHealth, saveHealth, syncHealth, supLogKey, WORKOUT_COLORS } from '@/lib/health/store';
 import type { HealthData } from '@/lib/health/store';
 import type { WidgetProps } from '@/types';
 import { cn } from '@/lib/utils';
@@ -16,6 +16,7 @@ export function HealthSupplementWidget({ widgetInstanceId }: WidgetProps) {
 
   useEffect(() => {
     reload();
+    syncHealth(setData);
   }, [reload, widgetInstanceId]);
 
   const toggle = useCallback((id: string) => {
@@ -97,7 +98,7 @@ const DAY_SHORT = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
 export function HealthFitnessWidget({ widgetInstanceId }: WidgetProps) {
   const [data, setData] = useState<HealthData | null>(null);
 
-  useEffect(() => { setData(loadHealth()); }, [widgetInstanceId]);
+  useEffect(() => { setData(loadHealth()); syncHealth(setData); }, [widgetInstanceId]);
 
   if (!data) return <div className="h-full flex items-center justify-center"><div className="h-4 w-24 bg-zinc-800 rounded animate-pulse" /></div>;
 

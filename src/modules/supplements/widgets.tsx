@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { Check, Flame } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { loadHealth, saveHealth, supLogKey } from '@/lib/health/store';
+import { loadHealth, saveHealth, syncHealth, supLogKey } from '@/lib/health/store';
 import type { WidgetProps } from '@/types';
 
 const DAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
@@ -23,7 +23,7 @@ export function SupplementAnalyticsWidget(_: WidgetProps) {
   const today = new Date();
 
   const reload = useCallback(() => setData(loadHealth()), []);
-  useEffect(() => { reload(); }, [reload]);
+  useEffect(() => { reload(); syncHealth(setData); }, [reload]);
 
   const active = data.supplements.filter((s) => s.active);
 
