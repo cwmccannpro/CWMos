@@ -1,4 +1,5 @@
 import { calendarAdapter } from '@/lib/adapters/calendar/ical-adapter';
+import { CALENDAR_TZ } from '@/lib/adapters/calendar/timezone';
 import type { ModuleAction, ActionResult } from '@/types';
 
 const MODULE_ID = 'calendar';
@@ -28,6 +29,7 @@ export const calendarActions: ModuleAction[] = [
         .map(
           (e) =>
             `• ${e.title} — ${e.start.toLocaleDateString('en-US', {
+              timeZone: CALENDAR_TZ,
               weekday: 'short',
               month: 'short',
               day: 'numeric',
@@ -99,7 +101,7 @@ export const calendarActions: ModuleAction[] = [
         success: true,
         message: `Created event "${event.title}" on ${event.start.toLocaleDateString(
           'en-US',
-          { weekday: 'long', month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit' }
+          { timeZone: CALENDAR_TZ, weekday: 'long', month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit' }
         )}.`,
         data: event,
       };

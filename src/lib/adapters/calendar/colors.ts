@@ -2,9 +2,9 @@ export type CalColor = { bg: string; text: string; dot: string };
 
 const NAMED: Record<string, CalColor> = {
   important:    { bg: 'bg-rose-600/20',   text: 'text-rose-300',   dot: 'text-rose-400'   },
-  appointments: { bg: 'bg-blue-600/20',   text: 'text-blue-300',   dot: 'text-blue-400'   },
+  appointments: { bg: 'bg-yellow-600/20', text: 'text-yellow-300', dot: 'text-yellow-400' },
   sahara:       { bg: 'bg-violet-600/20', text: 'text-violet-300', dot: 'text-violet-400' },
-  projects:     { bg: 'bg-amber-600/20',  text: 'text-amber-300',  dot: 'text-amber-400'  },
+  projects:     { bg: 'bg-purple-600/20', text: 'text-purple-300', dot: 'text-purple-400' },
   cwm:          { bg: 'bg-cyan-600/20',   text: 'text-cyan-300',   dot: 'text-cyan-400'   },
 };
 

@@ -7,8 +7,11 @@ import type {
   UpdateCardInput,
 } from './types';
 
+const SERVER_BASE =
+  typeof window === 'undefined' ? `http://localhost:${process.env.PORT ?? 3000}` : '';
+
 async function apiFetch(path: string, options?: RequestInit) {
-  const res = await fetch(`/api/trello${path}`, options);
+  const res = await fetch(`${SERVER_BASE}/api/trello${path}`, options);
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
     throw new Error(body.error ?? `Trello API error: ${res.status}`);

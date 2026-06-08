@@ -1,17 +1,46 @@
 import { NextResponse } from 'next/server';
 
-import { getUserCredentials } from '@/lib/integrations';
+import { getUserCredentials, getServiceCredentials } from '@/lib/integrations';
+import { CALENDAR_TZ } from '@/lib/adapters/calendar/timezone';
 
 function unfold(text: string): string {
   return text.replace(/\r\n[ \t]/g, '').replace(/\n[ \t]/g, '');
 }
 
-function parseIcsDate(val: string): Date | null {
-  const v = val.trim().replace('Z', '');
+// Convert a local wall-clock time in an IANA timezone to a UTC Date using Intl.
+function parseTzidDate(v: string, tzid: string): Date {
+  const iso = `${v.slice(0,4)}-${v.slice(4,6)}-${v.slice(6,8)}T${v.slice(9,11)}:${v.slice(11,13)}:${v.slice(13,15)}`;
+  // Start by treating the components as UTC (candidate)
+  const candidate = new Date(`${iso}Z`);
+  // Find what the candidate looks like in the target timezone
+  const dtf = new Intl.DateTimeFormat('en-US', {
+    timeZone: tzid,
+    year: 'numeric', month: 'numeric', day: 'numeric',
+    hour: 'numeric', minute: 'numeric', second: 'numeric',
+    hour12: false,
+  });
+  const parts = dtf.formatToParts(candidate);
+  const get = (type: string) => parseInt(parts.find(p => p.type === type)!.value);
+  const tzAsUTC = Date.UTC(get('year'), get('month') - 1, get('day'), get('hour') % 24, get('minute'), get('second'));
+  // Shift candidate by the difference to land on the correct UTC instant
+  return new Date(candidate.getTime() + (candidate.getTime() - tzAsUTC));
+}
+
+function parseIcsDate(val: string, tzid?: string): Date | null {
+  const str = val.trim();
+  const isUtc = str.endsWith('Z');
+  const v = str.replace('Z', '');
+  // All-day: anchor to midnight in the calendar timezone (deterministic across servers).
   if (/^\d{8}$/.test(v))
-    return new Date(`${v.slice(0,4)}-${v.slice(4,6)}-${v.slice(6,8)}T00:00:00Z`);
-  if (/^\d{8}T\d{6}$/.test(v))
-    return new Date(`${v.slice(0,4)}-${v.slice(4,6)}-${v.slice(6,8)}T${v.slice(9,11)}:${v.slice(11,13)}:${v.slice(13,15)}Z`);
+    return parseTzidDate(`${v}T000000`, CALENDAR_TZ);
+  if (/^\d{8}T\d{6}$/.test(v)) {
+    const iso = `${v.slice(0,4)}-${v.slice(4,6)}-${v.slice(6,8)}T${v.slice(9,11)}:${v.slice(11,13)}:${v.slice(13,15)}`;
+    if (isUtc) return new Date(`${iso}Z`);
+    if (tzid) { try { return parseTzidDate(v, tzid); } catch { /* fall through */ } }
+    // Floating (no Z, no TZID): interpret in the calendar timezone, not the ambient
+    // server zone — otherwise the instant shifts depending on where this runs.
+    try { return parseTzidDate(v, CALENDAR_TZ); } catch { return new Date(iso); }
+  }
   return null;
 }
 
@@ -118,6 +147,13 @@ function getVal(obj: Record<string, string>, prefix: string): string | undefined
   return key ? obj[key] : undefined;
 }
 
+function getValWithTzid(obj: Record<string, string>, prefix: string): { value: string | undefined; tzid: string | undefined } {
+  const key = Object.keys(obj).find(k => k === prefix || k.startsWith(`${prefix};`));
+  if (!key) return { value: undefined, tzid: undefined };
+  const tzidMatch = key.match(/TZID=([^;:]+)/);
+  return { value: obj[key], tzid: tzidMatch?.[1] };
+}
+
 function parseIcs(text: string, calendarId: string, from: Date | null, to: Date | null): RawEvent[] {
   const unfolded = unfold(text);
   const calendarName = (unfolded.match(/X-WR-CALNAME:([^\r\n]+)/) ?? [])[1]?.trim() ?? `Calendar ${calendarId}`;
@@ -140,11 +176,11 @@ function parseIcs(text: string, calendarId: string, from: Date | null, to: Date 
   const results: RawEvent[] = [];
 
   for (const v of rawEvents) {
-    const rawStart = getVal(v, 'DTSTART');
-    const rawEnd = getVal(v, 'DTEND') ?? getVal(v, 'DTSTART');
+    const { value: rawStart, tzid: startTzid } = getValWithTzid(v, 'DTSTART');
+    const { value: rawEnd } = getValWithTzid(v, 'DTEND');
     if (!rawStart) continue;
-    const start = parseIcsDate(rawStart);
-    const end = parseIcsDate(rawEnd ?? rawStart);
+    const start = parseIcsDate(rawStart, startTzid);
+    const end = parseIcsDate(rawEnd ?? rawStart, startTzid);
     if (!start || !end) continue;
 
     // Parse EXDATEs (comma-separated list of dates to skip)
@@ -181,12 +217,23 @@ function parseIcs(text: string, calendarId: string, from: Date | null, to: Date 
 }
 
 export async function GET(req: Request) {
-  const { userId, credentials } = await getUserCredentials('ical');
-  if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  let { userId, credentials } = await getUserCredentials('ical');
 
-  const icalUrls: string[] = (credentials?.urls as string[]) ?? [];
-  if (!icalUrls.length)
+  // No browser session — fall back to service-role lookup (MC internal calls)
+  if (!userId) {
+    ({ userId, credentials } = await getServiceCredentials('ical'));
+  }
+
+  let icalUrls: string[];
+  if ((credentials?.urls as string[] | undefined)?.length) {
+    icalUrls = credentials!.urls as string[];
+  } else if (process.env.ICAL_URLS) {
+    icalUrls = process.env.ICAL_URLS.split(',').map((u) => u.trim()).filter(Boolean);
+  } else if (!userId) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  } else {
     return NextResponse.json({ error: 'No calendars connected. Add iCal URLs in Settings → Integrations.' }, { status: 503 });
+  }
 
   const { searchParams } = new URL(req.url);
   const from = searchParams.get('from') ? new Date(searchParams.get('from')!) : null;

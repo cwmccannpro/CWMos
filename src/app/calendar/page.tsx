@@ -8,6 +8,12 @@ import { WeekView } from './WeekView';
 
 import { buildCalendarColorMap, FALLBACK_COLOR } from '@/lib/adapters/calendar/colors';
 import type { CalColor } from '@/lib/adapters/calendar/colors';
+import {
+  zonedParts,
+  zonedDateCarrier,
+  formatZonedTime,
+  formatZonedDate,
+} from '@/lib/adapters/calendar/timezone';
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
@@ -36,8 +42,10 @@ async function fetchEvents(from: Date, to: Date): Promise<CalendarEvent[] | null
 }
 
 export default function CalendarPage() {
-  const [today] = useState(new Date());
-  const [viewDate, setViewDate] = useState(new Date());
+  // Anchor "today" and the viewed date to calendar-date carriers (UTC-midnight of the
+  // calendar-zone date) so all date math below stays in one consistent zone.
+  const [today] = useState(() => zonedDateCarrier(new Date()));
+  const [viewDate, setViewDate] = useState(() => zonedDateCarrier(new Date()));
   const [viewMode, setViewMode] = useState<ViewMode>('week');
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [notConfigured, setNotConfigured] = useState(false);
@@ -50,13 +58,17 @@ export default function CalendarPage() {
   const weekStart = useMemo(() => getWeekSunday(viewDate), [viewDate]);
 
   useEffect(() => {
+    // Pad the fetch window by a day on each side: events are bucketed into columns by
+    // their calendar-zone day on the client, but this window is in absolute UTC, so a
+    // late-evening event can sit on an adjacent UTC day. The padding keeps it in range.
+    const PAD = 86400000;
     let from: Date, to: Date;
     if (viewMode === 'week') {
-      from = new Date(weekStart);
-      to = new Date(weekStart.getTime() + 7 * 86400000 - 1);
+      from = new Date(weekStart.getTime() - PAD);
+      to = new Date(weekStart.getTime() + 7 * 86400000 + PAD);
     } else {
-      from = new Date(Date.UTC(viewDate.getUTCFullYear(), viewDate.getUTCMonth(), 1));
-      to = new Date(Date.UTC(viewDate.getUTCFullYear(), viewDate.getUTCMonth() + 1, 0, 23, 59, 59));
+      from = new Date(Date.UTC(viewDate.getUTCFullYear(), viewDate.getUTCMonth(), 1) - PAD);
+      to = new Date(Date.UTC(viewDate.getUTCFullYear(), viewDate.getUTCMonth() + 1, 0, 23, 59, 59) + PAD);
     }
 
     setLoading(true);
@@ -106,7 +118,7 @@ export default function CalendarPage() {
     });
   }
 
-  function goToday() { setViewDate(new Date()); }
+  function goToday() { setViewDate(zonedDateCarrier(new Date())); }
 
   // Month view helpers
   const firstDayOfMonth = new Date(Date.UTC(viewDate.getUTCFullYear(), viewDate.getUTCMonth(), 1));
@@ -116,10 +128,10 @@ export default function CalendarPage() {
 
   function getMonthEventsForDay(day: number) {
     return visibleEvents.filter(e => {
-      const d = new Date(e.start);
-      return d.getUTCFullYear() === viewDate.getUTCFullYear()
-        && d.getUTCMonth() === viewDate.getUTCMonth()
-        && d.getUTCDate() === day;
+      const p = zonedParts(new Date(e.start));
+      return p.year === viewDate.getUTCFullYear()
+        && p.month === viewDate.getUTCMonth() + 1
+        && p.day === day;
     });
   }
 
@@ -135,10 +147,10 @@ export default function CalendarPage() {
 
   const selectedDayEvents = selectedDay
     ? visibleEvents.filter(e => {
-        const d = new Date(e.start);
-        return d.getUTCFullYear() === selectedDay.getUTCFullYear()
-          && d.getUTCMonth() === selectedDay.getUTCMonth()
-          && d.getUTCDate() === selectedDay.getUTCDate();
+        const p = zonedParts(new Date(e.start));
+        return p.year === selectedDay.getUTCFullYear()
+          && p.month === selectedDay.getUTCMonth() + 1
+          && p.day === selectedDay.getUTCDate();
       }).sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime())
     : [];
 
@@ -293,7 +305,7 @@ export default function CalendarPage() {
                           <p className={cn('text-xs mt-0.5', c.text)}>{event.calendarName}</p>
                           {!event.allDay && (
                             <p className="text-zinc-500 text-xs mt-0.5">
-                              {s.getUTCHours()}:{String(s.getUTCMinutes()).padStart(2,'0')} – {en.getUTCHours()}:{String(en.getUTCMinutes()).padStart(2,'0')}
+                              {formatZonedTime(s)} – {formatZonedTime(en)}
                             </p>
                           )}
                           {event.location && <p className="text-zinc-500 text-xs mt-0.5 truncate">{event.location}</p>}
@@ -330,9 +342,9 @@ export default function CalendarPage() {
                   </div>
                   {!selectedEvent.allDay && (
                     <p className="text-zinc-400 text-sm mb-2">
-                      {s.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' })}
+                      {formatZonedDate(s, { weekday: 'short', month: 'short', day: 'numeric' })}
                       {' · '}
-                      {s.getUTCHours()}:{String(s.getUTCMinutes()).padStart(2,'0')} – {en.getUTCHours()}:{String(en.getUTCMinutes()).padStart(2,'0')}
+                      {formatZonedTime(s)} – {formatZonedTime(en)}
                     </p>
                   )}
                   {selectedEvent.location && <p className="text-zinc-500 text-sm mb-2">📍 {selectedEvent.location}</p>}

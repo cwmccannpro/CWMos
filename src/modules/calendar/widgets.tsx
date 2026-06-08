@@ -5,6 +5,14 @@ import { Calendar, CalendarClock } from 'lucide-react';
 import type { CalendarEvent } from '@/lib/adapters/calendar/types';
 import { buildCalendarColorMap, FALLBACK_COLOR } from '@/lib/adapters/calendar/colors';
 import { cn } from '@/lib/utils';
+import {
+  CALENDAR_TZ,
+  zonedHourFloat,
+  zonedDateCarrier,
+  formatZonedTime,
+  isSameCarrierDay,
+  isInstantOnCarrierDay,
+} from '@/lib/adapters/calendar/timezone';
 import type { WidgetProps } from '@/types';
 
 // ─── Shared helpers ──────────────────────────────────────────────────────────
@@ -19,14 +27,15 @@ async function fetchRange(from: Date, to: Date): Promise<CalendarEvent[] | null>
   const raw: any[] = await res.json();
   return raw
     .map((e) => ({ ...e, start: new Date(e.start), end: new Date(e.end) }))
-    .filter((e) => e.start.getUTCFullYear() >= CURRENT_YEAR);
+    .filter((e) => e.start.getFullYear() >= CURRENT_YEAR);
 }
 
+// Compact time label (e.g. "7a", "7:35a") rendered in the calendar timezone.
 function fmtTime(d: Date) {
-  const h = d.getUTCHours(), m = d.getUTCMinutes();
-  const hr = h === 0 ? 12 : h > 12 ? h - 12 : h;
-  const suf = h < 12 ? 'a' : 'p';
-  return m === 0 ? `${hr}${suf}` : `${hr}:${String(m).padStart(2, '0')}${suf}`;
+  return formatZonedTime(d)
+    .replace(/\s?AM/, 'a')
+    .replace(/\s?PM/, 'p')
+    .replace(':00', '');
 }
 
 // ─── CalendarUpcomingWidget (today's agenda with left-aligned times) ───────────
@@ -37,27 +46,31 @@ export function CalendarUpcomingWidget({ widgetInstanceId }: WidgetProps) {
   const [notConfigured, setNotConfigured] = useState(false);
 
   useEffect(() => {
-    const now = new Date();
-    const from = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
-    const to   = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59));
+    // "Today" in the calendar timezone; pad the fetch window so events whose UTC
+    // instant lands on an adjacent day are still returned, then filter to today.
+    const todayCarrier = zonedDateCarrier(new Date());
+    const from = new Date(todayCarrier.getTime() - 86400000);
+    const to = new Date(todayCarrier.getTime() + 2 * 86400000);
 
-    fetchRange(from, to).then((data) => {
-      if (data === null) { setNotConfigured(true); }
-      else { setNotConfigured(false); setEvents(data.sort((a, b) => a.start.getTime() - b.start.getTime())); }
-    }).finally(() => setLoading(false));
+    const apply = (data: CalendarEvent[] | null) => {
+      if (data === null) { setNotConfigured(true); return; }
+      setNotConfigured(false);
+      setEvents(
+        data
+          .filter((e) => isInstantOnCarrierDay(e.start, todayCarrier))
+          .sort((a, b) => a.start.getTime() - b.start.getTime())
+      );
+    };
 
-    const interval = setInterval(async () => {
-      const data = await fetchRange(from, to);
-      if (data === null) setNotConfigured(true);
-      else { setNotConfigured(false); setEvents(data.sort((a, b) => a.start.getTime() - b.start.getTime())); }
-    }, 5 * 60 * 1000);
+    fetchRange(from, to).then(apply).finally(() => setLoading(false));
+    const interval = setInterval(() => { fetchRange(from, to).then(apply); }, 5 * 60 * 1000);
     return () => clearInterval(interval);
   }, [widgetInstanceId]);
 
   const colorMap = useMemo(() => buildCalendarColorMap(events), [events]);
 
   const dayLabel = new Date().toLocaleDateString('en-US', {
-    weekday: 'long', month: 'short', day: 'numeric',
+    timeZone: CALENDAR_TZ, weekday: 'long', month: 'short', day: 'numeric',
   });
 
   return (
@@ -131,26 +144,30 @@ export function CalendarDayWidget({ widgetInstanceId }: WidgetProps) {
   const [notConfigured, setNotConfigured] = useState(false);
 
   useEffect(() => {
-    const now = new Date();
-    const from = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
-    const to   = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59));
-    fetchRange(from, to).then((data) => {
-      if (data === null) setNotConfigured(true);
-      else { setNotConfigured(false); setEvents(data.sort((a, b) => a.start.getTime() - b.start.getTime())); }
-    }).finally(() => setLoading(false));
+    const todayCarrier = zonedDateCarrier(new Date());
+    const from = new Date(todayCarrier.getTime() - 86400000);
+    const to = new Date(todayCarrier.getTime() + 2 * 86400000);
 
-    const interval = setInterval(async () => {
-      const data = await fetchRange(from, to);
-      if (data === null) setNotConfigured(true);
-      else { setNotConfigured(false); setEvents(data.sort((a, b) => a.start.getTime() - b.start.getTime())); }
-    }, 5 * 60 * 1000);
+    const apply = (data: CalendarEvent[] | null) => {
+      if (data === null) { setNotConfigured(true); return; }
+      setNotConfigured(false);
+      setEvents(
+        data
+          .filter((e) => isInstantOnCarrierDay(e.start, todayCarrier))
+          .sort((a, b) => a.start.getTime() - b.start.getTime())
+      );
+    };
+
+    fetchRange(from, to).then(apply).finally(() => setLoading(false));
+    const interval = setInterval(() => { fetchRange(from, to).then(apply); }, 5 * 60 * 1000);
     return () => clearInterval(interval);
   }, [widgetInstanceId]);
 
   const colorMap = useMemo(() => buildCalendarColorMap(events), [events]);
 
-  const today = new Date();
-  const dayLabel = today.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
+  const dayLabel = new Date().toLocaleDateString('en-US', {
+    timeZone: CALENDAR_TZ, weekday: 'long', month: 'short', day: 'numeric',
+  });
 
   return (
     <div className="h-full flex flex-col gap-2 overflow-hidden">
@@ -199,11 +216,11 @@ const W_TOTAL  = W_END - W_START;
 const W_DAYS   = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
 const MAX_DUR  = 18;
 
-function weekSunday(d: Date) {
-  const out = new Date(d);
-  out.setUTCDate(out.getUTCDate() - out.getUTCDay());
-  out.setUTCHours(0, 0, 0, 0);
-  return out;
+// Sunday of the week containing `now`, as a calendar-date carrier (UTC midnight).
+function weekSundayCarrier(now: Date) {
+  const c = zonedDateCarrier(now);
+  c.setUTCDate(c.getUTCDate() - c.getUTCDay());
+  return c;
 }
 
 function durationH(e: CalendarEvent) {
@@ -212,12 +229,6 @@ function durationH(e: CalendarEvent) {
 
 function isAllDay(e: CalendarEvent) {
   return e.allDay || durationH(e) >= MAX_DUR;
-}
-
-function isSameUTCDay(a: Date, b: Date) {
-  return a.getUTCFullYear() === b.getUTCFullYear()
-    && a.getUTCMonth() === b.getUTCMonth()
-    && a.getUTCDate() === b.getUTCDate();
 }
 
 function layoutDay(evts: CalendarEvent[]) {
@@ -256,15 +267,16 @@ export function CalendarWeekWidget({ widgetInstanceId }: WidgetProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const now = new Date();
-  const weekStart = useMemo(() => weekSunday(now), []); // eslint-disable-line react-hooks/exhaustive-deps
+  const weekStart = useMemo(() => weekSundayCarrier(now), []); // eslint-disable-line react-hooks/exhaustive-deps
   const days = useMemo(
     () => Array.from({ length: 7 }, (_, i) => new Date(weekStart.getTime() + i * 86_400_000)),
     [weekStart]
   );
 
   useEffect(() => {
-    const from = new Date(weekStart);
-    const to = new Date(weekStart.getTime() + 7 * 86_400_000 - 1);
+    // Pad the window so events on adjacent UTC days survive calendar-zone bucketing.
+    const from = new Date(weekStart.getTime() - 86_400_000);
+    const to = new Date(weekStart.getTime() + 7 * 86_400_000 + 86_400_000);
 
     setLoading(true);
     fetchRange(from, to).then(data => {
@@ -281,20 +293,20 @@ export function CalendarWeekWidget({ widgetInstanceId }: WidgetProps) {
 
   // Auto-scroll to current time
   useEffect(() => {
-    const top = (now.getUTCHours() - W_START + now.getUTCMinutes() / 60) * W_HOUR_H - 60;
+    const top = (zonedHourFloat(now) - W_START) * W_HOUR_H - 60;
     scrollRef.current?.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
   }, [events]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const colorMap = useMemo(() => buildCalendarColorMap(events), [events]);
-  const today = new Date();
-  const todayIdx = days.findIndex((d) => isSameUTCDay(d, today));
-  const nowTop = (now.getUTCHours() - W_START + now.getUTCMinutes() / 60) * W_HOUR_H;
+  const todayCarrier = zonedDateCarrier(now);
+  const todayIdx = days.findIndex((d) => isSameCarrierDay(d, todayCarrier));
+  const nowTop = (zonedHourFloat(now) - W_START) * W_HOUR_H;
 
   const timedByDay = days.map((d) =>
-    events.filter((e) => !isAllDay(e) && isSameUTCDay(new Date(e.start), d))
+    events.filter((e) => !isAllDay(e) && isInstantOnCarrierDay(new Date(e.start), d))
   );
   const allDayByDay = days.map((d) =>
-    events.filter((e) => isAllDay(e) && isSameUTCDay(new Date(e.start), d))
+    events.filter((e) => isAllDay(e) && isInstantOnCarrierDay(new Date(e.start), d))
   );
   const layoutByDay = timedByDay.map(layoutDay);
   const hasAllDay = allDayByDay.some((d) => d.length > 0);
@@ -488,8 +500,8 @@ export function CalendarWeekWidget({ widgetInstanceId }: WidgetProps) {
                 {laid.map(({ event: e, col, total, span }, i) => {
                   const s = new Date(e.start);
                   const en = new Date(e.end);
-                  const startH = s.getUTCHours() + s.getUTCMinutes() / 60;
-                  const endH = Math.min(en.getUTCHours() + en.getUTCMinutes() / 60, W_END);
+                  const startH = zonedHourFloat(s);
+                  const endH = Math.min(zonedHourFloat(en), W_END);
                   const top = Math.max(0, (startH - W_START) * W_HOUR_H);
                   const height = Math.max(14, (endH - Math.max(startH, W_START)) * W_HOUR_H - 1);
                   const w = 100 / total;

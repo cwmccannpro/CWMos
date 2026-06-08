@@ -3,6 +3,12 @@
 import { useRef, useEffect, useMemo } from 'react';
 import type { CalendarEvent } from '@/lib/adapters/calendar/types';
 import { cn } from '@/lib/utils';
+import {
+  zonedHourFloat,
+  formatZonedTime,
+  isSameCarrierDay,
+  isInstantOnCarrierDay,
+} from '@/lib/adapters/calendar/timezone';
 
 const HOUR_HEIGHT = 64;
 const START_HOUR = 5;
@@ -19,12 +25,6 @@ interface Props {
   today: Date;
   getColor: (e: CalendarEvent) => CalColor;
   onEventClick: (e: CalendarEvent) => void;
-}
-
-function isSameUTCDay(a: Date, b: Date) {
-  return a.getUTCFullYear() === b.getUTCFullYear()
-    && a.getUTCMonth() === b.getUTCMonth()
-    && a.getUTCDate() === b.getUTCDate();
 }
 
 function durationHours(e: CalendarEvent) {
@@ -71,37 +71,30 @@ function formatHour(h: number) {
   return h < 12 ? `${h} AM` : `${h - 12} PM`;
 }
 
-function fmtTime(d: Date) {
-  const h = d.getUTCHours(), m = d.getUTCMinutes();
-  const s = h === 0 ? 12 : h > 12 ? h - 12 : h;
-  const suf = h < 12 ? 'AM' : 'PM';
-  return m === 0 ? `${s} ${suf}` : `${s}:${String(m).padStart(2,'0')} ${suf}`;
-}
-
 export function WeekView({ events, weekStart, today, getColor, onEventClick }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const now = new Date();
-    const top = (now.getUTCHours() - START_HOUR + now.getUTCMinutes() / 60) * HOUR_HEIGHT - 120;
+    const top = (zonedHourFloat(new Date()) - START_HOUR) * HOUR_HEIGHT - 120;
     scrollRef.current?.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
   }, [weekStart]);
 
+  // `weekStart` is a calendar-date carrier (UTC midnight of the Sunday); each day
+  // carrier holds a pure date, so UTC getters read the intended calendar date.
   const days = useMemo(() =>
     Array.from({ length: 7 }, (_, i) => new Date(weekStart.getTime() + i * 86400000)),
     [weekStart]
   );
 
-  const now = new Date();
-  const todayIdx = days.findIndex(d => isSameUTCDay(d, today));
-  const nowTop = (now.getUTCHours() - START_HOUR + now.getUTCMinutes() / 60) * HOUR_HEIGHT;
+  const todayIdx = days.findIndex(d => isSameCarrierDay(d, today));
+  const nowTop = (zonedHourFloat(new Date()) - START_HOUR) * HOUR_HEIGHT;
 
-  // Split events into all-day banners vs timed blocks
+  // Split events into all-day banners vs timed blocks (bucketed by calendar-zone day)
   const allDayByDay = days.map(d =>
-    events.filter(e => isAllDayDisplay(e) && isSameUTCDay(new Date(e.start), d))
+    events.filter(e => isAllDayDisplay(e) && isInstantOnCarrierDay(new Date(e.start), d))
   );
   const timedByDay = days.map(d =>
-    events.filter(e => !isAllDayDisplay(e) && isSameUTCDay(new Date(e.start), d))
+    events.filter(e => !isAllDayDisplay(e) && isInstantOnCarrierDay(new Date(e.start), d))
   );
   const layoutByDay = timedByDay.map(layoutDay);
   const hasAllDay = allDayByDay.some(d => d.length > 0);
@@ -112,7 +105,7 @@ export function WeekView({ events, weekStart, today, getColor, onEventClick }: P
       <div className="flex border-b border-zinc-800 bg-zinc-950 shrink-0">
         <div className="w-14 shrink-0 border-r border-zinc-800" />
         {days.map((day, i) => {
-          const isToday = isSameUTCDay(day, today);
+          const isToday = isSameCarrierDay(day, today);
           return (
             <div key={i} className="flex-1 text-center py-2 border-r border-zinc-800/40 last:border-r-0">
               <div className="text-[11px] text-zinc-500 uppercase tracking-wide">{DAY_LABELS[day.getUTCDay()]}</div>
@@ -194,8 +187,8 @@ export function WeekView({ events, weekStart, today, getColor, onEventClick }: P
                 {laid.map(({ event: e, col, total, span }, i) => {
                   const s = new Date(e.start);
                   const en = new Date(e.end);
-                  const startH = s.getUTCHours() + s.getUTCMinutes() / 60;
-                  const endH = Math.min(en.getUTCHours() + en.getUTCMinutes() / 60, END_HOUR);
+                  const startH = zonedHourFloat(s);
+                  const endH = Math.min(zonedHourFloat(en), END_HOUR);
                   const top = Math.max(0, (startH - START_HOUR) * HOUR_HEIGHT);
                   const height = Math.max(22, (endH - Math.max(startH, START_HOUR)) * HOUR_HEIGHT - 2);
                   const w = 100 / total;
@@ -210,7 +203,7 @@ export function WeekView({ events, weekStart, today, getColor, onEventClick }: P
                       <div className="text-[10px] font-semibold leading-tight truncate">{e.title}</div>
                       {height > 30 && (
                         <div className="text-[9px] opacity-70 leading-tight mt-0.5">
-                          {fmtTime(s)}{(endH - startH) > 0.3 ? ` – ${fmtTime(en)}` : ''}
+                          {formatZonedTime(s)}{(endH - startH) > 0.3 ? ` – ${formatZonedTime(en)}` : ''}
                         </div>
                       )}
                     </div>

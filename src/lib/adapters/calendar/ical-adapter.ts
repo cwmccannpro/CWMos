@@ -10,8 +10,12 @@ class ICalAdapter implements CalendarAdapter {
   private localCreated: CalendarEvent[] = [];
 
   async getEvents(from: Date, to: Date): Promise<CalendarEvent[]> {
+    const base =
+      typeof window === 'undefined'
+        ? `http://localhost:${process.env.PORT ?? 3000}`
+        : '';
     const res = await fetch(
-      `/api/calendar/events?from=${from.toISOString()}&to=${to.toISOString()}`
+      `${base}/api/calendar/events?from=${from.toISOString()}&to=${to.toISOString()}`
     );
     if (!res.ok) return this.localCreated;
     const raw: any[] = await res.json();
