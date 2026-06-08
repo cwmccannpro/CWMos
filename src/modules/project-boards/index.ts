@@ -1,3 +1,4 @@
+import { ProjectBoardWidget, ProjectBoardSettings } from './widgets';
 import type { ModuleDefinition } from '@/types';
 
 export const projectBoardsModule: ModuleDefinition = {
@@ -11,7 +12,18 @@ export const projectBoardsModule: ModuleDefinition = {
   routes: [
     { path: '/project-boards', label: 'Project Boards', icon: 'LayoutDashboard' },
   ],
-  widgets: [],
+  widgets: [
+    {
+      id: 'project-board',
+      moduleId: 'project-boards',
+      name: 'Project Board',
+      description: 'Compact view of a project board — columns with their cards',
+      defaultSize: { w: 4, h: 6 },
+      minSize: { w: 2, h: 4 },
+      component: ProjectBoardWidget,
+      settingsComponent: ProjectBoardSettings,
+    },
+  ],
   actions: [],
   permissions: [],
 };

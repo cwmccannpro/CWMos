@@ -8,7 +8,7 @@ import { CardModal, type Card } from './CardModal';
 
 interface Project { id: string; name: string; description: string | null; color: string; created_at: string }
 
-const DEFAULT_COLUMNS = ['Backlog', 'To Do', 'In Progress', 'Review', 'Done'];
+const DEFAULT_COLUMNS = ['To Do', 'Done'];
 const PROJECT_COLORS  = ['#00D4FF', '#8B5CF6', '#F59E0B', '#10b981', '#f97316', '#ef4444', '#ec4899'];
 
 // ── ProjectModal ──────────────────────────────────────────────────────────────
@@ -191,6 +191,15 @@ export default function ProjectBoardsPage() {
         body: JSON.stringify({ id: 'bulk', positions }),
       });
     }, 600);
+  }, []);
+
+  // Persist a new column order (after drag-to-reorder)
+  const saveColumnOrder = useCallback((cols: Column[]) => {
+    fetch('/api/project-boards/columns', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: 'bulk', reorder: cols.map((c, i) => ({ id: c.id, position: i })) }),
+    });
   }, []);
 
   // ── Project actions ─────────────────────────────────────────────────────────
@@ -493,6 +502,7 @@ export default function ProjectBoardsPage() {
                   cardsByColumn={cardsByColumn}
                   filter={filter}
                   onColumnsChange={setColumns}
+                  onSaveColumns={saveColumnOrder}
                   onCardsChange={setCardsByColumn}
                   onAddCard={(colId) => setAddingCard({ columnId: colId, title: '' })}
                   onOpenCard={setEditingCard}

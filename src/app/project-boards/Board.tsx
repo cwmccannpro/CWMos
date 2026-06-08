@@ -6,11 +6,10 @@ import {
   type DragStartEvent, type DragOverEvent, type DragEndEvent,
 } from '@dnd-kit/core';
 import {
-  SortableContext, useSortable, verticalListSortingStrategy, arrayMove,
+  SortableContext, useSortable, verticalListSortingStrategy, horizontalListSortingStrategy, arrayMove,
 } from '@dnd-kit/sortable';
-import { useDroppable } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
-import { Plus, MoreHorizontal, Trash2, Edit2, Flag, Calendar, User } from 'lucide-react';
+import { Plus, MoreHorizontal, Trash2, Edit2, GripVertical, Calendar, User } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { Card } from './CardModal';
 
@@ -27,7 +26,7 @@ const PRIORITY_LABEL: Record<string, string> = {
 // ── Sortable Card ─────────────────────────────────────────────────────────────
 
 function SortableCard({ card, onClick }: { card: Card; onClick: () => void }) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: card.id });
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: card.id, data: { type: 'card' } });
 
   const overdue = card.due_date && new Date(card.due_date) < new Date() && card.priority !== 'low';
 
@@ -110,7 +109,10 @@ interface ColumnProps {
 }
 
 function KanbanColumn({ column, cards, filter, onAddCard, onOpenCard, onRenameColumn, onDeleteColumn }: ColumnProps) {
-  const { setNodeRef } = useDroppable({ id: column.id });
+  // The column is itself sortable (drag handle = the grip in the header) and
+  // doubles as the droppable target for cards (useSortable registers both).
+  const { setNodeRef, attributes, listeners, transform, transition, isDragging } =
+    useSortable({ id: column.id, data: { type: 'column' } });
   const [menuOpen, setMenuOpen] = useState(false);
 
   const filtered = filter
@@ -125,17 +127,30 @@ function KanbanColumn({ column, cards, filter, onAddCard, onOpenCard, onRenameCo
   const cardIds = filtered.map(c => c.id);
 
   return (
-    <div className="flex flex-col w-72 shrink-0">
+    <div
+      ref={setNodeRef}
+      style={{ transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.4 : 1 }}
+      className="flex flex-col w-72 shrink-0"
+    >
       {/* Column header */}
       <div
         className="flex items-center justify-between px-3 py-2.5 rounded-t-xl mb-0"
         style={{ background: 'rgba(0,212,255,0.04)', border: '1px solid rgba(0,212,255,0.1)', borderBottom: 'none', borderRadius: '12px 12px 0 0' }}
       >
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-medium text-zinc-300">{column.title}</span>
-          <span className="text-[10px] text-zinc-600 bg-zinc-800 px-1.5 py-0.5 rounded-full">{filtered.length}</span>
+        <div className="flex items-center gap-1.5 min-w-0">
+          <button
+            type="button"
+            {...attributes}
+            {...listeners}
+            className="shrink-0 cursor-grab active:cursor-grabbing text-zinc-600 hover:text-cyan-400 transition-colors -ml-1"
+            title="Drag to reorder column"
+          >
+            <GripVertical size={13} />
+          </button>
+          <span className="text-xs font-medium text-zinc-300 truncate">{column.title}</span>
+          <span className="text-[10px] text-zinc-600 bg-zinc-800 px-1.5 py-0.5 rounded-full shrink-0">{filtered.length}</span>
         </div>
-        <div className="relative">
+        <div className="relative shrink-0">
           <button
             onClick={() => setMenuOpen(v => !v)}
             className="p-1 rounded text-zinc-600 hover:text-zinc-300 transition-colors"
@@ -157,7 +172,6 @@ function KanbanColumn({ column, cards, filter, onAddCard, onOpenCard, onRenameCo
 
       {/* Cards drop zone */}
       <div
-        ref={setNodeRef}
         className="flex-1 px-2 pt-2 pb-1 min-h-[60px] rounded-b-xl"
         style={{ background: 'rgba(8,12,20,0.5)', border: '1px solid rgba(0,212,255,0.1)', borderTop: 'none', borderRadius: '0 0 12px 12px' }}
       >
@@ -197,6 +211,21 @@ function CardOverlay({ card }: { card: Card }) {
   );
 }
 
+// ── Drag overlay column (ghost) ───────────────────────────────────────────────
+
+function ColumnOverlay({ column, count }: { column: Column; count: number }) {
+  return (
+    <div
+      className="w-72 rounded-xl px-3 py-2.5 rotate-1 shadow-2xl flex items-center gap-1.5"
+      style={{ background: 'rgba(14,20,30,0.98)', border: '1px solid rgba(0,212,255,0.35)', boxShadow: '0 0 30px rgba(0,212,255,0.15)' }}
+    >
+      <GripVertical size={13} className="text-cyan-400 shrink-0" />
+      <span className="text-xs font-medium text-zinc-200 truncate">{column.title}</span>
+      <span className="text-[10px] text-zinc-500 bg-zinc-800 px-1.5 py-0.5 rounded-full shrink-0">{count}</span>
+    </div>
+  );
+}
+
 // ── Main Board ────────────────────────────────────────────────────────────────
 
 interface BoardProps {
@@ -204,6 +233,7 @@ interface BoardProps {
   cardsByColumn: Record<string, Card[]>;
   filter: string;
   onColumnsChange: (cols: Column[]) => void;
+  onSaveColumns: (cols: Column[]) => void;
   onCardsChange: (map: Record<string, Card[]>) => void;
   onAddCard: (columnId: string) => void;
   onOpenCard: (card: Card) => void;
@@ -215,11 +245,12 @@ interface BoardProps {
 
 export function KanbanBoard({
   columns, cardsByColumn, filter,
-  onColumnsChange, onCardsChange,
+  onColumnsChange, onSaveColumns, onCardsChange,
   onAddCard, onOpenCard, onRenameColumn, onDeleteColumn, onAddColumn,
   onSavePositions,
 }: BoardProps) {
   const [activeCard, setActiveCard] = useState<Card | null>(null);
+  const [activeColumn, setActiveColumn] = useState<Column | null>(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
@@ -234,6 +265,11 @@ export function KanbanBoard({
   }, [columns, cardsByColumn]);
 
   function onDragStart({ active }: DragStartEvent) {
+    if (active.data.current?.type === 'column') {
+      const col = columns.find(c => c.id === active.id);
+      if (col) setActiveColumn(col);
+      return;
+    }
     const colId = findColumnOfCard(active.id as string);
     if (!colId) return;
     const card = (cardsByColumn[colId] ?? []).find(c => c.id === active.id);
@@ -241,6 +277,8 @@ export function KanbanBoard({
   }
 
   function onDragOver({ active, over }: DragOverEvent) {
+    // Column reordering is resolved on drag end, not while hovering.
+    if (active.data.current?.type === 'column') return;
     if (!over || active.id === over.id) return;
     const activeColId = findColumnOfCard(active.id as string);
     if (!activeColId) return;
@@ -270,8 +308,27 @@ export function KanbanBoard({
   }
 
   function onDragEnd({ active, over }: DragEndEvent) {
+    const wasColumn = active.data.current?.type === 'column';
     setActiveCard(null);
-    if (!over || active.id === over.id) return;
+    setActiveColumn(null);
+    if (!over) return;
+
+    // Column reordering — resolve the target column (over may be a card).
+    if (wasColumn) {
+      const overColId = columns.some(c => c.id === over.id)
+        ? (over.id as string)
+        : findColumnOfCard(over.id as string);
+      if (!overColId || overColId === active.id) return;
+      const oldIdx = columns.findIndex(c => c.id === active.id);
+      const newIdx = columns.findIndex(c => c.id === overColId);
+      if (oldIdx === -1 || newIdx === -1) return;
+      const reordered = arrayMove(columns, oldIdx, newIdx).map((c, i) => ({ ...c, position: i }));
+      onColumnsChange(reordered);
+      onSaveColumns(reordered);
+      return;
+    }
+
+    if (active.id === over.id) return;
 
     const activeColId = findColumnOfCard(active.id as string);
     if (!activeColId) return;
@@ -305,7 +362,7 @@ export function KanbanBoard({
   return (
     <DndContext sensors={sensors} collisionDetection={closestCorners} onDragStart={onDragStart} onDragOver={onDragOver} onDragEnd={onDragEnd}>
       <div className="flex gap-4 h-full items-start overflow-x-auto pb-4 pr-4">
-        <SortableContext items={columnIds} strategy={verticalListSortingStrategy}>
+        <SortableContext items={columnIds} strategy={horizontalListSortingStrategy}>
           {columns.map(col => (
             <KanbanColumn
               key={col.id}
@@ -331,7 +388,11 @@ export function KanbanBoard({
       </div>
 
       <DragOverlay>
-        {activeCard ? <CardOverlay card={activeCard} /> : null}
+        {activeCard
+          ? <CardOverlay card={activeCard} />
+          : activeColumn
+            ? <ColumnOverlay column={activeColumn} count={(cardsByColumn[activeColumn.id] ?? []).length} />
+            : null}
       </DragOverlay>
     </DndContext>
   );
